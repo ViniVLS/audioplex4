@@ -1,6 +1,6 @@
 # AudioPlex4
 
-Extraia e ouça áudios de vídeos do YouTube em alta qualidade (MP3 320/256kbps), com player integrado estilo Amazon Music e autenticação via Supabase.
+Extraia e ouça áudios de vídeos do YouTube em alta qualidade, com player integrado estilo Amazon Music e autenticação via Supabase.
 
 ## Stack
 
@@ -10,15 +10,33 @@ Extraia e ouça áudios de vídeos do YouTube em alta qualidade (MP3 320/256kbps
 | Player | HTMLAudioElement + MediaSession API (+ Capacitor Media para nativo) |
 | Auth | Supabase Auth (email + Google + GitHub) |
 | Banco | Supabase Postgres (RLS + Realtime) |
-| Backend | Supabase Edge Functions (Deno) + Express (dev/proxy) |
+| Backend | Supabase Edge Functions (Deno) — sem servidor Express |
+| Conversão | FFmpegKit no dispositivo Android (mp3 320k / aac 256k) |
 | Mobile | Capacitor 8 (Android) |
+
+## Arquitetura
+
+```
+YouTube (Opus 160k / m4a 128k)
+   ↓
+Edge Function (Deno, resolves URL via @distube/ytdl-core)
+   ↓
+App Android (Capacitor)
+   ├── Tocar Agora → stream via Edge Function → <audio>
+   └── Extrair → baixa áudio bruto → FFmpegKit converte → salva offline
+```
+
+**Fluxo de extração:**
+1. Edge Function `extract-audio` resolve a URL de áudio de maior qualidade (Opus 160k preferido)
+2. Baixa os bytes e retorna diretamente para o app
+3. App Android converte com FFmpegKit (mp3 320k ou aac 256k)
+4. Salva na pasta Downloads pública + biblioteca interna (offline)
 
 ## Estrutura
 
 ```
 PLMP3/
 ├── frontend/            # Angular app
-├── server/              # Express (proxy dev + ffmpeg/yt-dlp)
 ├── supabase/            # Edge Functions + migrations SQL
 ├── scripts/             # Helpers de build (CI)
 │   ├── write-env.cjs           # gera environment.production.ts
@@ -33,15 +51,11 @@ PLMP3/
 ## Desenvolvimento local
 
 ```bash
-# Backend (Express + yt-dlp) — porta 3000
-npm run dev:server
-
-# Frontend Angular — porta 4200 (com proxy /api)
+# Frontend Angular — porta 4200
 cd frontend && npm start
 ```
 
-> ⚠️ **Dependência externa:** o backend usa `bin/yt-dlp.exe` (não versionado).
-> Baixe em https://github.com/yt-dlp/yt-dlp/releases e coloque em `bin/yt-dlp.exe`.
+> As Edge Functions rodam no Supabase Cloud (não precisa de backend local).
 
 ---
 
@@ -118,17 +132,38 @@ base64 -w 0 release.keystore > release.keystore.b64
 
 ## Supabase
 
-```bash
-# Aplicar migrações localmente (Supabase CLI)
-supabase start
-supabase db reset
+### Migrations (SQL)
 
-# Deploy das Edge Functions
-supabase functions deploy auth-session
-supabase functions deploy video-info
-# ... (uma para cada função em supabase/functions/)
+Rode o SQL consolidado no Dashboard → SQL Editor:
+
+```
+supabase/setup-complete.sql
 ```
 
-As migrations em `supabase/migrations/` criam o schema completo com RLS + Realtime.
+Ou via CLI:
+```bash
+supabase db reset
+```
+
+### Deploy das Edge Functions
+
+```bash
+supabase login
+supabase link --project-ref fgvcjxgwpwjohqumzziv
+supabase functions deploy --project-ref fgvcjxgwpwjohqumzziv
+```
+
+### Configurar secrets (opcional)
+
+`BACKEND_INTERNAL_URL` **não é mais necessário** (Express removido).
 
 ---
+
+## Plugins nativos Android (a implementar)
+
+| Plugin | Função |
+|---|---|
+| `ffmpeg-converter` | Converte áudio no device (FFmpegKit full-gpl) |
+| `media-saver` | Salva arquivos na pasta Downloads pública (MediaStore) |
+
+Esses plugins serão implementados na Fase 2 do desenvolvimento.

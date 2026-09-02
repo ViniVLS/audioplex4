@@ -40,9 +40,9 @@ Write-Host ""
 
 $functions = @(
     @{ name = "auth-session";        desc = "Valida sessao do usuario";               needs_backend = $false },
-    @{ name = "video-info";          desc = "Busca info do video (via Express)";       needs_backend = $true  },
-    @{ name = "stream";              desc = "Stream de audio (via Express)";           needs_backend = $true  },
-    @{ name = "extract-audio";       desc = "Extrai audio do YouTube (via Express)";   needs_backend = $true  },
+    @{ name = "video-info";          desc = "Busca info do video (via Deno/ytdl-core)"; needs_backend = $false },
+    @{ name = "stream";              desc = "Stream de audio (via Deno/ytdl-core)";   needs_backend = $false },
+    @{ name = "extract-audio";       desc = "Extrai audio do YouTube (via Deno)";     needs_backend = $false },
     @{ name = "queue-add";           desc = "Adiciona faixa a fila";                   needs_backend = $false },
     @{ name = "queue-list";          desc = "Lista fila do usuario";                   needs_backend = $false },
     @{ name = "queue-reorder";       desc = "Reordena fila";                           needs_backend = $false },
@@ -55,9 +55,7 @@ $functions = @(
 )
 
 foreach ($fn in $functions) {
-    $tag = ""
-    if ($fn.needs_backend) { $tag = " [REQUER EXPRESS]" }
-    Write-Host "  - $($fn.name)$tag"
+    Write-Host "  - $($fn.name)"
     Write-Host "    $($fn.desc)"
 }
 Write-Host ""
@@ -117,8 +115,7 @@ Write-Host ""
 $secrets = @(
     @{ name = "SUPABASE_URL";               value = $SUPABASE_URL; desc = "URL do projeto" },
     @{ name = "SUPABASE_ANON_KEY";           value = "(configurado automaticamente)"; desc = "Chave publica" },
-    @{ name = "SUPABASE_SERVICE_ROLE_KEY";   value = "(pegue no Dashboard -> Settings -> API -> service_role)"; desc = "Chave admin (NUNCA expor ao frontend)" },
-    @{ name = "BACKEND_INTERNAL_URL";        value = "(URL do Express em producao - ex: https://seu-backend.com)"; desc = "Proxy para video-info/stream/extract" }
+    @{ name = "SUPABASE_SERVICE_ROLE_KEY";   value = "(pegue no Dashboard -> Settings -> API -> service_role)"; desc = "Chave admin (NUNCA expor ao frontend)" }
 )
 
 foreach ($s in $secrets) {
@@ -136,13 +133,11 @@ Write-Host "  RESUMO - O que falta fazer:"
 Write-Host "=================================================="
 Write-Host ""
 Write-Host "  1. Abrir o SQL Editor e rodar setup-complete.sql"
-Write-Host "  2. Configurar SUPABASE_SERVICE_ROLE_KEY no Dashboard"
-Write-Host "  3. Deployar as 13 Edge Functions (via CLI ou Dashboard)"
-Write-Host "  4. Configurar BACKEND_INTERNAL_URL (quando tiver Express em producao)"
-Write-Host "  5. Configurar os 2 secrets no GitHub:"
+Write-Host "  2. Deployar as 13 Edge Functions (via CLI ou Dashboard)"
+Write-Host "  3. Configurar os 2 secrets no GitHub:"
 Write-Host "     - SUPABASE_URL = $SUPABASE_URL"
 Write-Host "     - SUPABASE_ANON_KEY = (a que voce ja tem)"
-Write-Host "  6. Habilitar Auth providers (Google/GitHub) no Dashboard -> Auth -> Providers"
+Write-Host "  4. Habilitar Auth providers (Google/GitHub) no Dashboard -> Auth -> Providers"
 Write-Host ""
 Write-Host "=================================================="
 Write-Host "  Projeto: $SUPABASE_URL/dashboard"
