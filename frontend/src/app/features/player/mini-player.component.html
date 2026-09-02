@@ -1,0 +1,76 @@
+<div class="mini-player" *ngIf="hasTrack()">
+    <!-- Progresso fino no topo -->
+    <div class="progress-bar-track">
+        <div class="progress-bar-fill" [style.width.%]="player.progress()"></div>
+    </div>
+
+    <div class="player-content">
+        <!-- Capa + info -->
+        <button class="track-info" (click)="player.toggleExpanded()">
+            <img class="cover"
+                 [src]="player.currentTrack()?.thumbnail"
+                 [alt]="player.currentTrack()?.title"
+                 loading="lazy">
+            <div class="meta">
+                <div class="title">{{ player.currentTrack()?.title }}</div>
+                <div class="artist">{{ player.currentTrack()?.author }}</div>
+            </div>
+        </button>
+
+        <!-- Controles centrais -->
+        <div class="controls">
+            <button mat-icon-button
+                    matTooltip="Aleatório"
+                    [class.active]="player.shuffle()"
+                    (click)="player.toggleShuffle()"
+                    aria-label="Aleatório">
+                <mat-icon>shuffle</mat-icon>
+            </button>
+            <button mat-icon-button
+                    (click)="player.previous()"
+                    [disabled]="!player.hasPrevious()"
+                    aria-label="Anterior">
+                <mat-icon>skip_previous</mat-icon>
+            </button>
+            <button mat-fab
+                    class="play-btn"
+                    (click)="player.togglePlay()"
+                    [attr.aria-label]="player.isPlaying() ? 'Pausar' : 'Tocar'">
+                <mat-icon>{{ player.isPlaying() ? 'pause' : 'play_arrow' }}</mat-icon>
+            </button>
+            <button mat-icon-button
+                    (click)="player.next()"
+                    [disabled]="!player.hasNext()"
+                    aria-label="Próxima">
+                <mat-icon>skip_next</mat-icon>
+            </button>
+            <button mat-icon-button
+                    matTooltip="Repetir"
+                    [class.active]="player.repeat() !== 'off'"
+                    (click)="player.cycleRepeat()"
+                    [attr.aria-label]="'Repetir: ' + player.repeat()">
+                <mat-icon>{{ player.repeat() === 'one' ? 'repeat_one' : 'repeat' }}</mat-icon>
+            </button>
+        </div>
+
+        <!-- Tempo + volume + ações -->
+        <div class="right-controls">
+            <span class="time">{{ formatTime(player.currentTime()) }} / {{ formatTime(player.duration()) }}</span>
+
+            <div class="volume-control">
+                <mat-icon class="volume-icon">{{ player.muted() || player.volume() === 0 ? 'volume_off' : 'volume_up' }}</mat-icon>
+                <input type="range" min="0" max="100"
+                       [value]="player.volume() * 100"
+                       (input)="onVolume($event)"
+                       aria-label="Volume">
+            </div>
+
+            <button mat-icon-button
+                    matTooltip="Fila de reprodução"
+                    (click)="player.toggleDrawer()"
+                    aria-label="Fila">
+                <mat-icon>queue_music</mat-icon>
+            </button>
+        </div>
+    </div>
+</div>

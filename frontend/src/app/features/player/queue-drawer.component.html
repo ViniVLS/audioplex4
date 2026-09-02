@@ -1,0 +1,67 @@
+<!--
+  Painel lateral fixo da fila de reprodução.
+  Controlado por player.drawerOpen().
+-->
+<div class="drawer-overlay" *ngIf="player.drawerOpen()" (click)="player.closeDrawer()"></div>
+
+<aside class="queue-drawer" [class.open]="player.drawerOpen()" role="dialog" aria-label="Fila de reprodução">
+  <div class="drawer-content">
+    <!-- Header -->
+    <div class="drawer-header">
+      <div class="header-title">
+        <h2>Fila de Reprodução</h2>
+        <span class="count" *ngIf="hasQueue()">{{ queue().length }} faixas</span>
+      </div>
+      <div class="header-actions">
+        <button mat-icon-button matTooltip="Limpar fila" (click)="clear()"
+                [disabled]="!hasQueue()" aria-label="Limpar fila">
+          <mat-icon>clear_all</mat-icon>
+        </button>
+        <button mat-icon-button matTooltip="Fechar" (click)="player.closeDrawer()"
+                aria-label="Fechar">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista da fila -->
+    <div class="queue-list" cdkDropList (cdkDropListDropped)="onDrop($event)">
+      <div class="empty-state" *ngIf="!hasQueue()">
+        <mat-icon>queue_music</mat-icon>
+        <p>Sua fila está vazia</p>
+        <span>Adicione músicas clicando em "Tocar agora" ou "Adicionar à fila"</span>
+      </div>
+
+      <div class="queue-item" *ngFor="let item of queue(); let i = index; trackBy: trackById"
+           cdkDrag [cdkDragData]="item" [class.playing]="currentIndex() === i">
+        <div class="item-main" (click)="playFromQueue(item)">
+          <div class="drag-handle" cdkDragHandle aria-label="Reordenar">
+            <mat-icon>drag_indicator</mat-icon>
+          </div>
+
+          <img class="item-cover" [src]="item.track.thumbnail"
+               [alt]="item.track.title" loading="lazy">
+
+          <div class="item-info">
+            <div class="item-title">{{ item.track.title }}</div>
+            <div class="item-artist">{{ item.track.author }}</div>
+          </div>
+
+          <div class="item-badge" *ngIf="currentIndex() === item.position">
+            <mat-icon>equalizer</mat-icon>
+            <span>Tocando</span>
+          </div>
+        </div>
+
+        <div class="item-actions">
+          <span class="item-duration">{{ formatTime(item.track.duration || 0) }}</span>
+          <button mat-icon-button matTooltip="Remover da fila"
+                  (click)="removeItem(item.id); $event.stopPropagation()"
+                  aria-label="Remover da fila" class="remove-btn">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>

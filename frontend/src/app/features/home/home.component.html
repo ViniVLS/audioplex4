@@ -1,0 +1,180 @@
+<div class="container">
+    <header class="header">
+        <div class="logo-badge">
+            <mat-icon class="main-icon">headphones</mat-icon>
+        </div>
+        <h1>🎵 AudioPlex4</h1>
+        <p class="subtitle">Extraia áudio de vídeos do YouTube em MP3 de alta qualidade (320kbps / 256kbps)</p>
+
+        <div class="user-info" *ngIf="auth.currentUser() as user">
+            <span class="user-email">
+                <mat-icon>account_circle</mat-icon>
+                {{ user.email }}
+            </span>
+            <button mat-stroked-button class="logout-btn" (click)="onLogout()">
+                <mat-icon>logout</mat-icon>
+                Sair
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Input de URL -->
+        <div class="input-section">
+            <mat-form-field appearance="outline" class="full-width">
+                <mat-label>URL do Vídeo do YouTube ou Shorts</mat-label>
+                <input matInput
+                       [formControl]="youtubeUrl"
+                       placeholder="https://www.youtube.com/watch?v=... ou youtu.be/..."
+                       (keyup.enter)="getVideoInfo()">
+                <mat-icon matSuffix>link</mat-icon>
+                <mat-error *ngIf="youtubeUrl.hasError('required')">
+                    URL é obrigatória
+                </mat-error>
+                <mat-error *ngIf="youtubeUrl.hasError('pattern')">
+                    URL do YouTube inválida (ex: https://www.youtube.com/watch?v=...)
+                </mat-error>
+            </mat-form-field>
+
+            <div class="button-group">
+                <button mat-raised-button
+                        color="primary"
+                        (click)="getVideoInfo()"
+                        [disabled]="isButtonDisabled">
+                    <mat-icon>search</mat-icon>
+                    Buscar Vídeo
+                </button>
+                <button mat-raised-button
+                        color="warn"
+                        (click)="clearAll()"
+                        [disabled]="isLoading || isExtracting">
+                    <mat-icon>clear</mat-icon>
+                    Limpar
+                </button>
+            </div>
+        </div>
+
+        <!-- Progresso durante busca ou extração -->
+        <div class="progress-section" *ngIf="isLoading || isExtracting">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <p class="progress-message">{{ progressMessage }}</p>
+        </div>
+
+        <!-- Informações do vídeo encontrado -->
+        <div class="video-info" *ngIf="videoInfo">
+            <mat-card class="video-card">
+                <div class="card-image-wrapper">
+                    <img mat-card-image [src]="videoInfo.thumbnail" [alt]="videoInfo.title">
+                    <span class="duration-tag">{{ videoInfo.formattedDuration || videoInfo.duration + 's' }}</span>
+                </div>
+                <mat-card-content>
+                    <h2>{{ videoInfo.title }}</h2>
+                    <div class="video-details">
+                        <p><mat-icon>person</mat-icon> <strong>Autor / Canal:</strong> {{ videoInfo.author }}</p>
+                        <p><mat-icon>schedule</mat-icon> <strong>Duração:</strong> {{ videoInfo.formattedDuration || videoInfo.duration + ' segundos' }}</p>
+                        <p><mat-icon>visibility</mat-icon> <strong>Visualizações:</strong> {{ videoInfo.formattedViews || videoInfo.views }}</p>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <!-- Seleção de qualidade e formato -->
+            <div class="quality-section">
+                <h3>Qualidade e Formato do Áudio:</h3>
+                <mat-radio-group [(ngModel)]="audioQuality" class="radio-vertical">
+                    <mat-radio-button value="high">
+                        <span class="radio-text">
+                            <strong>{{ getQualityLabel('high') }}</strong>
+                            <small>Taxa de bits máxima para caixas de som e fones Hi-Fi</small>
+                        </span>
+                    </mat-radio-button>
+                    <mat-radio-button value="medium">
+                        <span class="radio-text">
+                            <strong>{{ getQualityLabel('medium') }}</strong>
+                            <small>Excelente fidelidade e tamanho equilibrado</small>
+                        </span>
+                    </mat-radio-button>
+                    <mat-radio-button value="low">
+                        <span class="radio-text">
+                            <strong>{{ getQualityLabel('low') }}</strong>
+                            <small>Arquivo leve e ágil para podcasts ou mensagens</small>
+                        </span>
+                    </mat-radio-button>
+                </mat-radio-group>
+                <mat-select [(ngModel)]="audioFormat" class="format-select">
+                    <mat-option value="mp3">
+                        <mat-icon>audiotrack</mat-icon> MP3
+                    </mat-option>
+                    <mat-option value="aac">
+                        <mat-icon>audiotrack</mat-icon> AAC
+                    </mat-option>
+                    <mat-option value="wav">
+                        <mat-icon>audiotrack</mat-icon> WAV
+                    </mat-option>
+                    <mat-option value="flac">
+                        <mat-icon>audiotrack</mat-icon> FLAC
+                    </mat-option>
+                </mat-select>
+            </div>
+
+            <!-- Botões de ação -->
+            <div class="action-buttons">
+                <button mat-raised-button
+                        color="primary"
+                        class="play-now-button"
+                        (click)="playNow()"
+                        [disabled]="isLoading || isExtracting">
+                    <mat-icon>play_arrow</mat-icon>
+                    Tocar Agora
+                </button>
+                <button mat-raised-button
+                        color="accent"
+                        class="extract-button"
+                        (click)="extractAudio()"
+                        [disabled]="isExtracting || isLoading">
+                    <mat-icon>music_note</mat-icon>
+                    {{ isExtracting ? 'Extraindo e Convertendo...' : 'Extrair e Baixar Áudio MP3' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Vídeos de teste -->
+        <div class="test-section">
+            <h3>Sugestões de Vídeos para Teste:</h3>
+            <div class="test-buttons">
+                <button mat-stroked-button
+                        *ngFor="let video of testVideos"
+                        (click)="useTestVideo(video.url)">
+                    <mat-icon>play_circle</mat-icon>
+                    {{ video.title }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Histórico de downloads -->
+        <div class="history-section" *ngIf="history.length > 0">
+            <button mat-stroked-button color="primary" (click)="toggleHistory()" class="history-toggle">
+                <mat-icon>history</mat-icon>
+                Histórico ({{ history.length }})
+                <span *ngIf="showHistory" class="history-toggle-close">Fechar</span>
+            </button>
+            <div class="history-list" *ngIf="showHistory">
+                <mat-accordion>
+                    <mat-expansion-panel *ngFor="let item of history">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                {{ item.title }}
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+                        <div class="panel-content">
+                            <p><small>Formato: {{ item.quality }} | Data: {{ item.date | date:'dd/MM/yyyy HH:mm' }}</small></p>
+                        </div>
+                    </mat-expansion-panel>
+                </mat-accordion>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Respeite os direitos autorais e termos de serviço do YouTube.</p>
+    </footer>
+</div>

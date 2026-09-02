@@ -1,0 +1,96 @@
+# =====================================================================
+# Supabase project config (supabase/config.toml)
+# =====================================================================
+# Configuração local do projeto Supabase.
+# Documentação: https://supabase.com/docs/guides/cli/config
+# =====================================================================
+
+project_id = "plmp3"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1:54321"
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:4200"
+additional_redirect_urls = ["http://localhost:4200/auth/callback"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+secure_password_change = false
+max_frequency = "1m0s"
+
+[auth.email.template.confirmation]
+subject = "Confirme seu email - PLMP3"
+
+[auth.email.template.invite]
+subject = "Você foi convidado para o PLMP3"
+
+[auth.email.template.magic_link]
+subject = "Seu link de login - PLMP3"
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+# Provedores OAuth (configurar client_id/secret no dashboard do Supabase)
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret    = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+redirect_uri = ""
+
+[auth.external.github]
+enabled = true
+client_id = "env(SUPABASE_AUTH_GITHUB_CLIENT_ID)"
+secret    = "env(SUPABASE_AUTH_GITHUB_SECRET)"
+redirect_uri = ""
+
+[edge_runtime]
+enabled = true
+inspector_port = 8083
+
+[analytics]
+enabled = false

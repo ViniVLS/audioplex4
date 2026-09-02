@@ -1,0 +1,160 @@
+<div class="now-playing-overlay" (click)="close()" *ngIf="player.expanded()">
+  <div class="now-playing-panel" (click)="stopPropagation($event)">
+
+    <!-- Handle de arrasto (indicador visual) -->
+    <div class="drag-handle" aria-hidden="true"></div>
+
+    <!-- Botão fechar -->
+    <button class="close-btn" mat-icon-button (click)="close()" aria-label="Fechar">
+      <mat-icon>close</mat-icon>
+    </button>
+
+    <!-- Capa grande -->
+    <div class="artwork">
+      <img
+        [src]="currentTrack()?.thumbnail"
+        [alt]="currentTrack()?.title"
+        class="cover"
+        loading="lazy">
+    </div>
+
+    <!-- Título e artista -->
+    <div class="track-info">
+      <h2 class="title">{{ currentTrack()?.title }}</h2>
+      <p class="artist">{{ currentTrack()?.author }}</p>
+    </div>
+
+    <!-- Progresso -->
+    <div class="progress-section">
+      <span class="time-current">{{ formatTime(currentTime()) }}</span>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        [value]="progress()"
+        (input)="onSeek($event)"
+        class="progress-slider"
+        aria-label="Posição da reprodução">
+      <span class="time-total">{{ formatTime(duration()) }}</span>
+    </div>
+
+    <!-- Controles principais -->
+    <div class="main-controls">
+      <button mat-icon-button
+              matTooltip="Aleatório"
+              [class.active]="player.shuffle()"
+              (click)="player.toggleShuffle()"
+              aria-label="Aleatório">
+        <mat-icon>shuffle</mat-icon>
+      </button>
+      <button mat-icon-button
+              (click)="player.previous()"
+              [disabled]="!player.hasPrevious()"
+              aria-label="Anterior">
+        <mat-icon>skip_previous</mat-icon>
+      </button>
+      <button mat-fab
+              class="play-btn"
+              (click)="player.togglePlay()"
+              [attr.aria-label]="player.isPlaying() ? 'Pausar' : 'Tocar'">
+        <mat-icon>{{ player.isPlaying() ? 'pause' : 'play_arrow' }}</mat-icon>
+      </button>
+      <button mat-icon-button
+              (click)="player.next()"
+              [disabled]="!player.hasNext()"
+              aria-label="Próxima">
+        <mat-icon>skip_next</mat-icon>
+      </button>
+      <button mat-icon-button
+              matTooltip="Repetir"
+              [class.active]="player.repeat() !== 'off'"
+              (click)="player.cycleRepeat()"
+              [attr.aria-label]="'Repetir: ' + player.repeat()">
+        <mat-icon>{{ player.repeat() === 'one' ? 'repeat_one' : 'repeat' }}</mat-icon>
+      </button>
+    </div>
+
+    <!-- Controles secundários -->
+    <div class="secondary-controls">
+      <button mat-icon-button
+              matTooltip="Dispositivos"
+              aria-label="Dispositivos">
+        <mat-icon>cast</mat-icon>
+      </button>
+      <button mat-icon-button
+              matTooltip="Letra"
+              aria-label="Letra">
+        <mat-icon>lyrics</mat-icon>
+      </button>
+      <button mat-icon-button
+              matTooltip="Fila"
+              (click)="player.toggleDrawer()"
+              aria-label="Fila de reprodução">
+        <mat-icon>queue_music</mat-icon>
+      </button>
+      <button mat-icon-button
+              matTooltip="Extrair e baixar áudio"
+              (click)="openExtractMenu()"
+              aria-label="Extrair áudio">
+        <mat-icon>download</mat-icon>
+      </button>
+    </div>
+
+    <!-- Volume -->
+    <div class="volume-section">
+      <mat-icon class="volume-icon" [class.muted]="player.muted() || player.volume() === 0">
+        {{ player.muted() || player.volume() === 0 ? 'volume_off' : 'volume_up' }}
+      </mat-icon>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        [value]="player.volume() * 100"
+        (input)="onVolume($event)"
+        class="volume-slider"
+        aria-label="Volume">
+    </div>
+
+    <!-- Menu de qualidade/extração (sobrepõe o painel) -->
+    <div class="quality-menu" *ngIf="qualityMenuOpen()" (click)="stopPropagation($event)">
+      <div class="menu-header">
+        <h3>Extrair Áudio</h3>
+        <button mat-icon-button (click)="qualityMenuOpen.set(false)" aria-label="Fechar menu">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="menu-body">
+        <div class="option-group">
+          <label>Qualidade</label>
+          <mat-radio-group [(ngModel)]="extractingQuality" class="radio-group">
+            <mat-radio-button value="high">
+              <strong>320 kbps</strong> - Studio (Máxima Fidelidade)
+            </mat-radio-button>
+            <mat-radio-button value="medium">
+              <strong>256 kbps</strong> - Alta Fidelidade
+            </mat-radio-button>
+            <mat-radio-button value="low">
+              <strong>128 kbps</strong> - Qualidade Compacta
+            </mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        <div class="option-group">
+          <label>Formato</label>
+          <mat-radio-group [(ngModel)]="extractingFormat" class="radio-group">
+            <mat-radio-button value="mp3"><mat-icon>audiotrack</mat-icon> MP3</mat-radio-button>
+            <mat-radio-button value="aac"><mat-icon>audiotrack</mat-icon> AAC</mat-radio-button>
+            <mat-radio-button value="wav"><mat-icon>audiotrack</mat-icon> WAV</mat-radio-button>
+            <mat-radio-button value="flac"><mat-icon>audiotrack</mat-icon> FLAC</mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        <button mat-raised-button color="primary" class="extract-btn" (click)="extractCurrent()">
+          <mat-icon>music_note</mat-icon>
+          Extrair e Baixar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

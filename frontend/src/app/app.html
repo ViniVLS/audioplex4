@@ -1,0 +1,10 @@
+<!--
+  Layout global: <router-outlet> + <audio> host + <app-mini-player> + <app-now-playing> + <app-queue-drawer>.
+-->
+<router-outlet></router-outlet>
+
+<audio #audioEl preload="metadata" crossorigin="anonymous"></audio>
+
+<app-mini-player></app-mini-player>
+<app-now-playing></app-now-playing>
+<app-queue-drawer></app-queue-drawer>

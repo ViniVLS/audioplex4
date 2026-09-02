@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  REFERÊNCIA: android/app/src/main/res/values/strings.xml
+  O Capacitor gera este arquivo com app_name = AudioPlex4 ao executar
+  `npx cap init "AudioPlex4" "com.audioplex4"` seguido de `npx cap add android`.
+-->
+<resources>
+    <string name="app_name">AudioPlex4</string>
+    <string name="title_activity_main">AudioPlex4</string>
+    <string name="package_name">com.audioplex4</string>
+    <string name="custom_url_scheme">com.audioplex4</string>
+</resources>
