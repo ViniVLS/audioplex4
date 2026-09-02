@@ -11,8 +11,8 @@ export interface Track {
   duration?:         number;          // segundos
   formatted_duration?: string;
   source_url:        string;
-  format?:           'mp3' | 'aac' | 'wav' | 'flac';
-  bitrate?:          '128k' | '256k' | '320k';
+  format?:           'm4a' | 'webm' | 'mp3' | 'aac';
+  bitrate?:          '128k' | '160k' | '256k' | '320k';
   file_size_bytes?:  number;
   created_at?:       string;
   updated_at?:       string;

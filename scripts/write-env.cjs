@@ -35,8 +35,6 @@ export const environment = {
     url: '${SUPABASE_URL}',
     anonKey: '${SUPABASE_ANON_KEY}',
   },
-
-  apiBaseUrl: '', // vazio = usa Edge Functions via supabase.functions.invoke
 };
 `;
 

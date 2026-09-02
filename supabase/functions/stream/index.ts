@@ -1,15 +1,13 @@
 // supabase/functions/stream/index.ts
 // GET /stream?videoId=XXX
-// Faz proxy de stream de áudio do YouTube com suporte a Range requests
-// (necessário para <audio> fazer seeking).
+// Faz proxy de stream de áudio do YouTube com suporte a Range requests.
 //
-// Autenticação: REQUIRED
-// Cache: URLs de stream do YouTube expiram em ~6h. Fazemos cache
-// in-memory com TTL de 5min para evitar bater no YouTube em cada seek.
+// Versão 100% Deno — resolve a URL via @distube/ytdl-core e proxy direto.
+// Cache in-memory de URLs (TTL 5min) para não bater no YouTube a cada seek.
 
+import ytdl from 'npm:@distube/ytdl-core@4.16.4';
 import { authenticate } from '../_shared/auth.ts';
 import { handlePreflight, errorResponse } from '../_shared/response.ts';
-import { proxyToBackend } from '../_shared/youtube.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 
 interface CacheEntry {
@@ -31,12 +29,42 @@ function getCachedStreamUrl(videoId: string): string | null {
 
 function setCachedStreamUrl(videoId: string, url: string): void {
   cache.set(videoId, { url, expiresAt: Date.now() + CACHE_TTL_MS });
-  // Limpa entradas expiradas periodicamente
-  if (cache.size > 100) {
+  if (cache.size > 200) {
     for (const [k, v] of cache) {
       if (Date.now() > v.expiresAt) cache.delete(k);
     }
   }
+}
+
+async function resolveStreamUrl(videoId: string): Promise<string> {
+  const cached = getCachedStreamUrl(videoId);
+  if (cached) return cached;
+
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const info = await ytdl.getInfo(url);
+
+  // Melhor áudio: m4a (AAC) para compatibilidade
+  const formats = info.formats.filter((f) => f.hasAudio && !f.hasVideo);
+  if (formats.length === 0) throw new Error('Nenhum formato de áudio encontrado.');
+
+  // Prioriza m4a (compatível com todos os players)
+  const sorted = formats
+    .filter((f) => f.url)
+    .sort((a, b) => {
+      // m4a primeiro, depois por bitrate
+      const aM4a = a.container === 'm4a' ? 1 : 0;
+      const bM4a = b.container === 'm4a' ? 1 : 0;
+      if (bM4a !== aM4a) return bM4a - aM4a;
+      return (b.audioBitrate ?? 0) - (a.audioBitrate ?? 0);
+    });
+
+  if (sorted.length === 0 || !sorted[0].url) {
+    throw new Error('Não foi possível obter URL de stream.');
+  }
+
+  const streamUrl = sorted[0].url;
+  setCachedStreamUrl(videoId, streamUrl);
+  return streamUrl;
 }
 
 Deno.serve(async (req: Request) => {
@@ -56,28 +84,9 @@ Deno.serve(async (req: Request) => {
       return errorResponse('videoId inválido.', 400);
     }
 
-    // Resolve a URL de stream (cache primeiro)
-    let streamUrl = getCachedStreamUrl(videoId);
+    const streamUrl = await resolveStreamUrl(videoId);
 
-    if (!streamUrl) {
-      const resolveRes = await proxyToBackend(`/api/stream/resolve?videoId=${videoId}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!resolveRes.ok) {
-        const err = await resolveRes.json().catch(() => null);
-        return errorResponse(err?.error ?? 'Falha ao resolver stream.', resolveRes.status);
-      }
-
-      const data = await resolveRes.json();
-      streamUrl = data.streamUrl;
-      if (!streamUrl) return errorResponse('streamUrl ausente na resposta.', 502);
-
-      setCachedStreamUrl(videoId, streamUrl);
-    }
-
-    // Faz proxy do stream real com suporte a Range
+    // Proxy com suporte a Range
     const rangeHeader = req.headers.get('Range');
     const upstreamHeaders: Record<string, string> = {};
     if (rangeHeader) upstreamHeaders['Range'] = rangeHeader;
@@ -85,14 +94,12 @@ Deno.serve(async (req: Request) => {
     const upstream = await fetch(streamUrl, { headers: upstreamHeaders });
 
     if (!upstream.ok && upstream.status !== 206) {
-      // Invalida cache em caso de erro (URL pode ter expirado)
       cache.delete(videoId);
       return errorResponse(`Upstream retornou ${upstream.status}.`, 502);
     }
 
-    // Repassa o body com headers apropriados
     const headers = new Headers(corsHeaders);
-    headers.set('Content-Type', upstream.headers.get('Content-Type') ?? 'audio/webm');
+    headers.set('Content-Type', upstream.headers.get('Content-Type') ?? 'audio/mp4');
     headers.set('Accept-Ranges', 'bytes');
 
     const contentRange = upstream.headers.get('Content-Range');

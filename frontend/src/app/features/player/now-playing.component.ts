@@ -32,7 +32,7 @@ export class NowPlayingComponent {
 
   qualityMenuOpen = signal(false);
   extractingQuality: 'high' | 'medium' | 'low' = 'high';
-  extractingFormat: 'mp3' | 'aac' | 'wav' | 'flac' = 'mp3';
+  extractingFormat: 'mp3' | 'aac' = 'mp3';
 
   readonly currentTrack = this.player.currentTrack;
   readonly isPlaying = this.player.isPlaying;
@@ -74,36 +74,25 @@ export class NowPlayingComponent {
     const track = this.player.currentTrack();
     if (!track) return;
 
-    const useEdge = !environment.production;
-    const url = useEdge
-      ? `${environment.apiBaseUrl}/api/extract-audio`
-      : `${environment.supabase.url}/functions/v1/extract-audio`;
+    const edgeFnUrl = `${environment.supabase.url}/functions/v1`;
 
-    const response = await this.http.post<any>(url, {
-      url: track.source_url,
-      quality: this.extractingQuality,
-      format: this.extractingFormat,
-    }).toPromise();
+    try {
+      const response = await this.http.post(`${edgeFnUrl}/extract-audio`, {
+        url: track.source_url,
+        trackId: track.video_id,
+      }, { responseType: 'blob', observe: 'response' }).toPromise();
 
-    if (response?.success) {
-      this.downloadAudio(response.downloadUrl, response.fileName || track.title);
-    } else {
-      console.error('Extraction failed:', response?.error);
+      if (response) {
+        const audioInfoHeader = response.headers.get('X-Audio-Info');
+        const audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+        const blob = response.body as Blob;
+        const fileName = audioInfo?.fileName ?? `${track.title}.webm`;
+        saveAs(blob, fileName);
+      }
+    } catch (err) {
+      console.error('Extraction failed:', err);
     }
 
     this.qualityMenuOpen.set(false);
-  }
-
-  private downloadAudio(downloadUrl: string, title: string): void {
-    const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : downloadUrl;
-    const fileName = title.endsWith('.mp3') ? title : `${title}.mp3`;
-
-    fetch(fullUrl)
-      .then((r) => {
-        if (!r.ok) throw new Error('Download failed');
-        return r.blob();
-      })
-      .then((blob) => saveAs(blob, fileName))
-      .catch((err) => console.error('Download error:', err));
   }
 }

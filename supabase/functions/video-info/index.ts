@@ -1,14 +1,14 @@
 // supabase/functions/video-info/index.ts
 // POST /video-info
 // Body: { url: string }
-// Retorna: { success, videoInfo: { title, author, duration, thumbnail, ... } }
+// Retorna: { success, videoInfo: { title, author, duration, thumbnail, ... }, videoId }
 //
-// Autenticação: REQUIRED (apenas usuários logados podem buscar)
-// Estratégia: proxy para o Express local /api/video-info
+// Autenticação: REQUIRED
+// Versão 100% Deno — usa @distube/ytdl-core direto (sem Express).
 
 import { authenticate } from '../_shared/auth.ts';
 import { handlePreflight, json, errorResponse } from '../_shared/response.ts';
-import { isValidYoutubeUrl, extractVideoId, proxyToBackend } from '../_shared/youtube.ts';
+import { isValidYoutubeUrl, extractVideoId, getVideoMetadata } from '../_shared/youtube.ts';
 
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
@@ -40,27 +40,13 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Não foi possível extrair o video_id da URL.', 400);
     }
 
-    // 3. Proxy para o Express (que tem play-dl/ytdl-core)
-    const backendRes = await proxyToBackend('/api/video-info', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ url, userId, videoId }),
-    });
+    // 3. Busca metadata via ytdl-core (Deno, sem Express)
+    const videoInfo = await getVideoMetadata(url!);
 
-    const data = await backendRes.json().catch(() => null);
-
-    if (!backendRes.ok || !data) {
-      console.error('Backend /video-info error:', backendRes.status, data);
-      return errorResponse(
-        data?.error ?? 'Erro ao buscar informações do vídeo no backend.',
-        backendRes.status === 404 ? 404 : 502,
-      );
-    }
-
-    return json({ success: true, videoInfo: data.videoInfo, videoId });
+    return json({ success: true, videoInfo, videoId });
   } catch (e) {
     if (e instanceof Response) return e;
     console.error('video-info error:', e);
-    return errorResponse('Erro interno ao processar a requisição.', 500);
+    return errorResponse('Erro interno ao buscar informações do vídeo.', 500);
   }
 });

@@ -4,7 +4,7 @@
             <mat-icon class="main-icon">headphones</mat-icon>
         </div>
         <h1>🎵 AudioPlex4</h1>
-        <p class="subtitle">Extraia áudio de vídeos do YouTube em MP3 de alta qualidade (320kbps / 256kbps)</p>
+        <p class="subtitle">Extraia e ouça áudio de vídeos do YouTube em alta qualidade</p>
 
         <div class="user-info" *ngIf="auth.currentUser() as user">
             <span class="user-email">
@@ -77,45 +77,6 @@
                 </mat-card-content>
             </mat-card>
 
-            <!-- Seleção de qualidade e formato -->
-            <div class="quality-section">
-                <h3>Qualidade e Formato do Áudio:</h3>
-                <mat-radio-group [(ngModel)]="audioQuality" class="radio-vertical">
-                    <mat-radio-button value="high">
-                        <span class="radio-text">
-                            <strong>{{ getQualityLabel('high') }}</strong>
-                            <small>Taxa de bits máxima para caixas de som e fones Hi-Fi</small>
-                        </span>
-                    </mat-radio-button>
-                    <mat-radio-button value="medium">
-                        <span class="radio-text">
-                            <strong>{{ getQualityLabel('medium') }}</strong>
-                            <small>Excelente fidelidade e tamanho equilibrado</small>
-                        </span>
-                    </mat-radio-button>
-                    <mat-radio-button value="low">
-                        <span class="radio-text">
-                            <strong>{{ getQualityLabel('low') }}</strong>
-                            <small>Arquivo leve e ágil para podcasts ou mensagens</small>
-                        </span>
-                    </mat-radio-button>
-                </mat-radio-group>
-                <mat-select [(ngModel)]="audioFormat" class="format-select">
-                    <mat-option value="mp3">
-                        <mat-icon>audiotrack</mat-icon> MP3
-                    </mat-option>
-                    <mat-option value="aac">
-                        <mat-icon>audiotrack</mat-icon> AAC
-                    </mat-option>
-                    <mat-option value="wav">
-                        <mat-icon>audiotrack</mat-icon> WAV
-                    </mat-option>
-                    <mat-option value="flac">
-                        <mat-icon>audiotrack</mat-icon> FLAC
-                    </mat-option>
-                </mat-select>
-            </div>
-
             <!-- Botões de ação -->
             <div class="action-buttons">
                 <button mat-raised-button
@@ -132,7 +93,7 @@
                         (click)="extractAudio()"
                         [disabled]="isExtracting || isLoading">
                     <mat-icon>music_note</mat-icon>
-                    {{ isExtracting ? 'Extraindo e Convertendo...' : 'Extrair e Baixar Áudio MP3' }}
+                    {{ isExtracting ? 'Extraindo...' : 'Extrair e Baixar Áudio' }}
                 </button>
             </div>
         </div>

@@ -2,6 +2,10 @@
 // Tela principal (rota protegida): contém a UI do extrator de áudio.
 // Migrada de AppComponent para isolar a lógica de negócio e
 // permitir que o AppComponent raiz seja apenas um layout global.
+//
+// Versão refatorada: 100% Edge Functions (sem Express).
+// "Extrair" baixa o áudio nativo do YouTube (Opus 160k ou m4a 128k)
+// e o download/conversão será feito no device (FFmpegKit no Android).
 
 import {
   Component,
@@ -76,29 +80,11 @@ export class HomeComponent implements OnInit {
     }
 
     ngOnInit() {
-        this.checkServerHealth();
         this.loadHistory();
     }
 
-    private get apiBase() {
-        return environment.apiBaseUrl;
-    }
-
-    private get authHeaders() {
-        // AuthInterceptor injeta o token; este método é apenas para
-        // garantir compatibilidade com o backend local Express durante dev.
-        return { headers: { Authorization: `Bearer ${(this.auth as any).rawUser?.id ?? ''}` } };
-    }
-
-    checkServerHealth() {
-        this.http.get<{ status: string; message: string }>(`${this.apiBase}/api/health`)
-            .subscribe({
-                next: (res) => console.log('✅ Backend OK:', res),
-                error: (err) => {
-                    this.toastr.warning('Backend local offline. Algumas funções podem não funcionar.', 'Aviso');
-                    console.warn('⚠️ Backend offline:', err);
-                },
-            });
+    private get edgeFnUrl() {
+        return `${environment.supabase.url}/functions/v1`;
     }
 
     loadHistory() {
@@ -120,15 +106,6 @@ export class HomeComponent implements OnInit {
         this.cdr.detectChanges();
     }
 
-    getQualityLabel(quality: string): string {
-        const labels: Record<string, string> = {
-            high:   '320 kbps - Studio (Máxima Fidelidade)',
-            medium: '256 kbps - Alta Fidelidade',
-            low:    '128 kbps - Qualidade Compacta',
-        };
-        return labels[quality] || quality;
-    }
-
     getVideoInfo() {
         if (this.youtubeUrl.invalid || !this.youtubeUrl.value) {
             this.toastr.warning('URL do YouTube inválida!', 'Atenção');
@@ -138,13 +115,7 @@ export class HomeComponent implements OnInit {
         this.isLoading = true;
         this.progressMessage = 'Buscando informações do vídeo...';
 
-        // Tenta Edge Function primeiro; cai para Express local em dev.
-        const useEdge = !environment.production;
-        const url = useEdge
-            ? `${this.apiBase}/api/video-info`  // Express local em dev
-            : `__SUPABASE_URL__/functions/v1/video-info`; // produção
-
-        this.http.post<any>(url, { url: this.youtubeUrl.value }).subscribe({
+        this.http.post<any>(`${this.edgeFnUrl}/video-info`, { url: this.youtubeUrl.value }).subscribe({
             next: (response) => {
                 this.isLoading = false;
                 this.progressMessage = '';
@@ -174,57 +145,43 @@ export class HomeComponent implements OnInit {
         }
 
         this.isExtracting = true;
-        this.progressMessage = 'Extraindo áudio e convertendo...';
+        this.progressMessage = 'Extraindo áudio...';
 
-        const useEdge = !environment.production;
-        const url = useEdge
-            ? `${this.apiBase}/api/extract-audio`
-            : `__SUPABASE_URL__/functions/v1/extract-audio`;
-
-        this.http.post<any>(url, {
+        // A Edge Function retorna os bytes de áudio diretamente (blob)
+        // com headers X-Audio-Info (container, codec, bitrate, fileName, videoInfo)
+        this.http.post(`${this.edgeFnUrl}/extract-audio`, {
             url: this.youtubeUrl.value,
-            quality: this.audioQuality,
-            format: this.audioFormat,
-        }).subscribe({
+            trackId: this.videoInfo.videoId,
+        }, { responseType: 'blob', observe: 'response' }).subscribe({
             next: (response) => {
                 this.isExtracting = false;
                 this.cdr.detectChanges();
-                if (response.success) {
-                    this.progressMessage = 'Conversão finalizada! Iniciando download...';
-                    this.toastr.success('Áudio extraído e convertido com sucesso!', 'Sucesso');
-                    this.saveToHistory(response.videoInfo || response.videoInfo?.title, this.audioQuality);
-                    this.downloadAudio(response.downloadUrl, response.fileName || response.videoInfo?.title);
-                } else {
-                    this.toastr.error(response.error || 'Erro na extração', 'Erro');
-                }
+
+                const audioInfoHeader = response.headers.get('X-Audio-Info');
+                const audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+                const blob = response.body as Blob;
+                const fileName = audioInfo?.fileName ?? `audio-${this.videoInfo?.videoId}.webm`;
+
+                this.progressMessage = `Áudio extraído (${audioInfo?.container ?? 'desconhecido'}). Iniciando download...`;
+                this.toastr.success(`Áudio extraído com sucesso!`, 'Sucesso');
+
+                this.saveToHistory(
+                    audioInfo?.videoInfo ?? this.videoInfo,
+                    audioInfo?.bitrate ? `${Math.round(audioInfo.bitrate / 1000)}k` : 'unknown',
+                );
+
+                // Download do arquivo de áudio bruto (webm/opus ou m4a)
+                // No Android/Capacitor, futuramente será salvo via plugin nativo
+                saveAs(blob, fileName);
             },
             error: (error) => {
                 this.isExtracting = false;
                 this.cdr.detectChanges();
-                const errMsg = error.error?.error || 'Erro ao processar extração de áudio.';
+                const errMsg = error.error?.error || error.message || 'Erro ao processar extração de áudio.';
                 this.toastr.error(errMsg, 'Erro');
-                console.error('Erro:', error);
+                console.error('Erro na extração:', error);
             },
         });
-    }
-
-    downloadAudio(downloadUrl: string, title: string) {
-        const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : downloadUrl;
-        const fileName = title.endsWith('.mp3') ? title : `${title}.mp3`;
-
-        fetch(fullUrl)
-            .then((response) => {
-                if (!response.ok) throw new Error('Falha na resposta do download');
-                return response.blob();
-            })
-            .then((blob) => {
-                saveAs(blob, fileName);
-                this.toastr.success('Download do MP3 iniciado!', 'Sucesso');
-            })
-            .catch((error) => {
-                console.error('Erro no download:', error);
-                this.toastr.error('Erro ao baixar arquivo MP3', 'Erro');
-            });
     }
 
     useTestVideo(url: string) {

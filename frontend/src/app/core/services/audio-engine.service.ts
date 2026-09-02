@@ -92,10 +92,7 @@ export class AudioEngineService {
   }
 
   private buildStreamUrl(track: Track): string {
-    // Em dev: backend local; em prod: Edge Function.
-    if (environment.production) {
-      return `${environment.supabase.url}/functions/v1/stream?videoId=${track.video_id}`;
-    }
-    return `${environment.apiBaseUrl}/api/stream?videoId=${track.video_id}`;
+    // Sempre usa a Edge Function (Supabase) — Express removido.
+    return `${environment.supabase.url}/functions/v1/stream?videoId=${track.video_id}`;
   }
 }
