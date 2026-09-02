@@ -4,8 +4,8 @@ export const environment = {
   production: true,
 
   supabase: {
-    url: '__SUPABASE_URL__',
-    anonKey: '__SUPABASE_ANON_KEY__',
+    url: 'https://fgvcjxgwpwjohqumzziv.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZndmNqeGd3cHdqb2hxdW16eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNTgyMjAsImV4cCI6MjA4OTczNDIyMH0.vm5NOzlS2LMX-CDxes-v_vCeSktkDusZ00nEhdDkoxU',
   },
 
   apiBaseUrl: '', // vazio = usa Edge Functions via supabase.functions.invoke

@@ -7,8 +7,8 @@ export const environment = {
   production: false,
 
   supabase: {
-    url:  'http://127.0.0.1:54321',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.local-dev-anon-key-replace-me',
+    url:  'https://fgvcjxgwpwjohqumzziv.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZndmNqeGd3cHdqb2hxdW16eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNTgyMjAsImV4cCI6MjA4OTczNDIyMH0.vm5NOzlS2LMX-CDxes-v_vCeSktkDusZ00nEhdDkoxU',
   },
 
   // Backend local Express (até migrarmos tudo para Edge Functions)
