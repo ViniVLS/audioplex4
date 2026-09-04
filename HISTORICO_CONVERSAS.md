@@ -204,4 +204,29 @@
 
 ---
 
-> **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se os serviços estão rodando corretamente
+---
+
+## [2026-09-03 22:15:00] - FIX
+
+**Intenção:** Corrigir erros no GitHub Actions que impediram geração do APK
+**Ação realizada:** 
+1. Lido workflow `.github/workflows/android-build.yml`
+2. Identificado erro: Node.js v20.20.2 mas pacotes requerem >=22
+3. Identificado erro: package-lock.json inconsistente (chokidar, readdirp, @types/node, undici-types)
+4. Atualizado `node-version: '20'` → `'22'` na linha 29
+5. Executado `npm install` (root + frontend) - pacotes já estavam atualizados
+6. Commit e push: `b1f23b0`
+**Arquivos afetados:** 
+- `.github/workflows/android-build.yml` (corrigido - Node 22)
+- `HISTORICO_CONVERSAS.md` (atualizado)
+- `frontend/angular.json` (atualizado)
+**Resultado:** Sucesso - Push realizado para origin/main
+**Observações:** 
+- Erro principal: `@capacitor/cli@8.5.1` e `concurrently@10.0.5` requerem Node >=22
+- Workflow agora usa Node 22 em vez de 20
+- package-lock.json já estava consistente (npm install retornou "up to date")
+- Workflow será disparado novamente automaticamente
+
+---
+
+> **PRÓXIMA AÇÃO NECESSÁRIA:** Monitorar novo build em https://github.com/ViniVLS/audioplex4/actions
