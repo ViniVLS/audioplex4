@@ -162,4 +162,46 @@
 
 ---
 
-> **PRÓXIMA AÇÃO NECESSÁRIA:** Fazer commit e push dos arquivos para disparar o build no GitHub Actions
+---
+
+## [2026-09-03 22:05:00] - DEPLOY
+
+**Intenção:** Executar commit e push para disparar build no GitHub Actions
+**Ação realizada:** 
+1. `git add -A` - Todos os arquivos staged
+2. `git commit -m "feat: complete Android native integration with Capacitor plugins, offline library, and auth improvements"`
+3. `git push origin main`
+**Arquivos afetados:** 
+- 39 arquivos (21 modificados + 18 novos)
+- 1830 inserções, 66 deleções
+**Resultado:** Sucesso - Push realizado para https://github.com/ViniVLS/audioplex4.git (fd2654a..4665658)
+**Observações:** 
+- Workflow android-build.yml será disparado automaticamente
+- Monitorar em: https://github.com/ViniVLS/audioplex4/actions
+- APK/AAB disponíveis em ~10-15 minutos
+
+---
+
+---
+
+## [2026-09-03 22:10:00] - LOCAL_DEV
+
+**Intenção:** Usuário quer testar a aplicação localmente com banco de dados em ambiente de teste
+**Ação realizada:** 
+1. Verificado Supabase CLI instalado (v2.116.0)
+2. Verificado Docker NÃO instalado (obrigatório para Supabase local)
+3. Usuário optou por usar Supabase remoto (já configurado)
+4. Iniciado backend em nova janela PowerShell: `npm run dev:server`
+5. Iniciado frontend em nova janela PowerShell: `npm start`
+**Arquivos afetados:** 
+- Nenhum arquivo modificado
+**Resultado:** Sucesso - Serviços iniciados
+**Observações:** 
+- Backend: http://localhost:3000
+- Frontend: http://localhost:4200
+- Supabase remoto: https://fgvcjxgwpwjohqumzziv.supabase.co
+- Duas janelas PowerShell abertas (backend + frontend)
+
+---
+
+> **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se os serviços estão rodando corretamente
