@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@angular/cli": "^21.2.22",
+    "chokidar": "^5.0.0",
     "nodemon": "^3.1.0",
     "typescript": "~5.9.2"
   }
