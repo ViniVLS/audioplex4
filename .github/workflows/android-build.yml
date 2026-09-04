@@ -98,8 +98,11 @@ jobs:
           [ ${#STORE_PASS} -lt 6 ] && STORE_PASS="${STORE_PASS}Pass123"
           [ ${#KEY_PASS} -lt 6 ] && KEY_PASS="${KEY_PASS}Pass123"
 
-          echo "${ANDROID_KEYSTORE_BASE64}" | tr -d '[:space:]' | base64 --decode > android/app/release.keystore || true
-          if ! keytool -list -keystore android/app/release.keystore -storepass "${STORE_PASS}" > /dev/null 2>&1; then
+          rm -f android/app/release.keystore
+          echo "${ANDROID_KEYSTORE_BASE64}" | tr -d '[:space:]' | base64 --decode > android/app/release.keystore 2>/dev/null || true
+
+          if [ ! -s android/app/release.keystore ] || ! keytool -list -keystore android/app/release.keystore -storepass "${STORE_PASS}" > /dev/null 2>&1; then
+            rm -f android/app/release.keystore
             echo "Keystore inválido ou ausente. Gerando novo keystore..."
             keytool -genkeypair -v \
               -keystore android/app/release.keystore \
