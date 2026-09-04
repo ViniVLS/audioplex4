@@ -36,19 +36,6 @@ function log(msg) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Inject signing config into build.gradle
-// ---------------------------------------------------------------------------
-function findAndroidBlock(gradle) {
-  // Procura a linha que abre o bloco "android {"
-  const match = gradle.match(/android\s*\{/);
-  if (!match) {
-    log('⚠️  Bloco "android {" não encontrado em build.gradle — pulando assinatura.');
-    return { gradle, modified: false };
-  }
-  return { gradle, index: match.index, modified: true };
-}
-
-// ---------------------------------------------------------------------------
 // 0. Update version in build.gradle (versionCode + versionName)
 // ---------------------------------------------------------------------------
 function injectVersion(gradle) {
@@ -78,10 +65,13 @@ function injectSigning(gradle) {
     return gradle;
   }
 
-  const { index, modified } = findAndroidBlock(gradle);
-  if (!modified) return gradle;
+  // 1. Encontrar o bloco "android {" e injetar signingConfigs depois do "{"
+  const androidMatch = gradle.match(/^android\s*\{/m);
+  if (!androidMatch) {
+    log('⚠️  Bloco "android {" não encontrado.');
+    return gradle;
+  }
 
-  // Bloco signingConfigs que será inserido logo após "android {"
   const signingBlock = `
     signingConfigs {
         release {
@@ -94,21 +84,33 @@ function injectSigning(gradle) {
     }
 `;
 
-  const openBraceClose = gradle.indexOf('{', index);
-  gradle = gradle.slice(0, openBraceClose + 1) + signingBlock + gradle.slice(openBraceClose + 1);
+  const androidBrace = gradle.indexOf('{', androidMatch.index);
+  gradle = gradle.slice(0, androidBrace + 1) + signingBlock + gradle.slice(androidBrace + 1);
 
-  // Adiciona signingConfig signingConfigs.release dentro do release { ... }
-  const releaseMatch = gradle.match(/release\s*\{/);
-  if (releaseMatch) {
-    const releaseOpen = gradle.indexOf('{', releaseMatch.index);
-    gradle =
-      gradle.slice(0, releaseOpen + 1) +
-      '\n            signingConfig signingConfigs.release' +
-      gradle.slice(releaseOpen + 1);
-  } else {
-    log('⚠️  Bloco "release {" não encontrado em buildTypes.');
+  // 2. Encontrar "buildTypes" e então o "release" DENTRO dele
+  const buildTypesMatch = gradle.match(/buildTypes\s*\{/);
+  if (!buildTypesMatch) {
+    log('⚠️  Bloco "buildTypes" não encontrado.');
+    return gradle;
   }
 
+  // Encontrar o "release" que está dentro de buildTypes (próximo "release {" após "buildTypes {")
+  const afterBuildTypes = gradle.slice(buildTypesMatch.index);
+  const releaseInBuildTypes = afterBuildTypes.match(/\brelease\s*\{/);
+  if (!releaseInBuildTypes) {
+    log('⚠️  Bloco "release" dentro de buildTypes não encontrado.');
+    return gradle;
+  }
+
+  const releaseBraceIndex = buildTypesMatch.index + afterBuildTypes.indexOf('{', releaseInBuildTypes.index);
+
+  // Inserir "signingConfig signingConfigs.release" após o "{" de "release {"
+  gradle =
+    gradle.slice(0, releaseBraceIndex + 1) +
+    '\n            signingConfig signingConfigs.release' +
+    gradle.slice(releaseBraceIndex + 1);
+
+  log('✅ signingConfigs + signingConfig.injectado no build.gradle.');
   return gradle;
 }
 
