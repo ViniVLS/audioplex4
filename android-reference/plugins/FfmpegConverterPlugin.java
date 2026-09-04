@@ -7,6 +7,7 @@ import com.arthenica.ffmpegkit.FFmpegKitConfig;
 import com.arthenica.ffmpegkit.FFmpegSession;
 import com.arthenica.ffmpegkit.FFprobeKit;
 import com.arthenica.ffmpegkit.MediaInformation;
+import com.arthenica.ffmpegkit.MediaInformationSession;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -97,7 +98,8 @@ public class FfmpegConverterPlugin extends Plugin {
         }
 
         try {
-            MediaInformation info = FFprobeKit.getMediaInformation(path);
+            MediaInformationSession session = FFprobeKit.getMediaInformation(path);
+            MediaInformation info = session.getMediaInformation();
             JSObject result = new JSObject();
             if (info != null) {
                 result.put("duration", info.getDuration());
@@ -116,10 +118,10 @@ public class FfmpegConverterPlugin extends Plugin {
     @PluginMethod
     public void getAvailableEncoders(PluginCall call) {
         try {
-            String encoders = FFmpegKitConfig.getLastCommandOutput();
+            String[] encoders = FFmpegKitConfig.getFFmpegEncoders();
             JSObject result = new JSObject();
             result.put("success", true);
-            result.put("encoders", encoders != null ? encoders : "");
+            result.put("encoders", encoders != null ? String.join(",", encoders) : "");
             call.resolve(result);
         } catch (Exception e) {
             call.reject("Erro ao listar encoders: " + e.getMessage());
