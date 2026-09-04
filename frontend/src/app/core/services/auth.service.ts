@@ -80,15 +80,41 @@ export class AuthService {
 
   async processOAuthRedirect(url: string): Promise<boolean> {
     try {
-      const { data, error } = await this.supabase.auth.getSessionFromUrl({ url });
-      if (error) {
-        console.error('OAuth redirect error:', error);
-        return false;
+      const hash = url.includes('#') ? url.split('#')[1] : '';
+      const params = new URLSearchParams(hash);
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+
+      if (access_token && refresh_token) {
+        const { data, error } = await this.supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+        if (error) {
+          console.error('OAuth redirect error:', error);
+          return false;
+        }
+        if (data?.session) {
+          this._session.set(data.session);
+        }
+        return !!data?.session;
       }
-      if (data?.session) {
-        this._session.set(data.session);
+
+      const code = params.get('code') || new URL(url).searchParams.get('code');
+      if (code) {
+        const { data, error } = await this.supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error('OAuth code exchange error:', error);
+          return false;
+        }
+        if (data?.session) {
+          this._session.set(data.session);
+        }
+        return !!data?.session;
       }
-      return !!data?.session;
+
+      console.error('No tokens or code found in URL');
+      return false;
     } catch (e) {
       console.error('processOAuthRedirect error:', e);
       return false;
