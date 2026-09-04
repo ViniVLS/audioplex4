@@ -95,8 +95,10 @@ jobs:
         run: |
           STORE_PASS="${ANDROID_KEYSTORE_PASSWORD}"
           KEY_PASS="${ANDROID_KEY_PASSWORD}"
+          KEY_ALIAS="${ANDROID_KEY_ALIAS}"
           [ ${#STORE_PASS} -lt 6 ] && STORE_PASS="${STORE_PASS}Pass123"
           [ ${#KEY_PASS} -lt 6 ] && KEY_PASS="${KEY_PASS}Pass123"
+          [ -z "${KEY_ALIAS}" ] && KEY_ALIAS="audioplex4-key"
 
           rm -f android/app/release.keystore
           echo "${ANDROID_KEYSTORE_BASE64}" | tr -d '[:space:]' | base64 --decode > android/app/release.keystore 2>/dev/null || true
@@ -108,7 +110,7 @@ jobs:
               -keystore android/app/release.keystore \
               -storepass "${STORE_PASS}" \
               -keypass "${KEY_PASS}" \
-              -alias "${ANDROID_KEY_ALIAS}" \
+              -alias "${KEY_ALIAS}" \
               -keyalg RSA -keysize 2048 \
               -validity 10000 \
               -dname "CN=AudioPlex4, OU=Dev, O=AudioPlex4, L=SP, ST=SP, C=BR"
@@ -116,6 +118,7 @@ jobs:
           keytool -list -keystore android/app/release.keystore -storepass "${STORE_PASS}"
           echo "KEYSTORE_PASS=${STORE_PASS}" >> $GITHUB_ENV
           echo "KEY_PASS=${KEY_PASS}" >> $GITHUB_ENV
+          echo "KEY_ALIAS=${KEY_ALIAS}" >> $GITHUB_ENV
 
       - name: Prepare Android (version + signing + plugins)
         run: node scripts/prepare-android.cjs
@@ -136,17 +139,16 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           ANDROID_KEYSTORE_PATH: release.keystore
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           ./gradlew bundleRelease --no-daemon \
             -PANDROID_KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH}" \
             -PANDROID_KEYSTORE_PASSWORD="${KEYSTORE_PASS}" \
-            -PANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS}" \
+            -PANDROID_KEY_ALIAS="${KEY_ALIAS}" \
             -PANDROID_KEY_PASSWORD="${KEY_PASS}"
           ./gradlew assembleRelease --no-daemon \
             -PANDROID_KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH}" \
             -PANDROID_KEYSTORE_PASSWORD="${KEYSTORE_PASS}" \
-            -PANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS}" \
+            -PANDROID_KEY_ALIAS="${KEY_ALIAS}" \
             -PANDROID_KEY_PASSWORD="${KEY_PASS}"
         working-directory: android
 
