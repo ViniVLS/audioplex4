@@ -73,38 +73,31 @@ function injectVersion(gradle) {
 }
 
 function injectSigning(gradle) {
-  const signed = areSigningEnvPresent();
-
-  if (!signed) {
-    log('ℹ️  Variáveis de assinatura ausentes — build de DEBUG sem assinatura.');
-    return gradle;
-  }
-
   if (gradle.includes('signingConfigs')) {
     log('ℹ️  signingConfigs já presente — nada a fazer.');
     return gradle;
   }
 
-  const { index } = findAndroidBlock(gradle);
+  const { index, modified } = findAndroidBlock(gradle);
+  if (!modified) return gradle;
 
   // Bloco signingConfigs que será inserido logo após "android {"
   const signingBlock = `
     signingConfigs {
         release {
-            storeFile file(project.findProperty("ANDROID_KEYSTORE_PATH") ?: "release.keystore")
-            storePassword project.findProperty("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias project.findProperty("ANDROID_KEY_ALIAS")
-            keyPassword project.findProperty("ANDROID_KEY_PASSWORD")
+            def ksFile = file(project.findProperty("ANDROID_KEYSTORE_PATH") ?: "release.keystore")
+            storeFile ksFile.exists() ? ksFile : null
+            storePassword project.findProperty("ANDROID_KEYSTORE_PASSWORD") ?: ""
+            keyAlias project.findProperty("ANDROID_KEY_ALIAS") ?: ""
+            keyPassword project.findProperty("ANDROID_KEY_PASSWORD") ?: ""
         }
     }
 `;
 
   const openBraceClose = gradle.indexOf('{', index);
-  // Insere logo após o "{" de "android {" (mantendo a indentação)
   gradle = gradle.slice(0, openBraceClose + 1) + signingBlock + gradle.slice(openBraceClose + 1);
 
-  // Faz o buildTypes.release referenciar o signingConfig
-  // Estratégia: dentro do release { ... }, adiciona a linha após "release {"
+  // Adiciona signingConfig signingConfigs.release dentro do release { ... }
   const releaseMatch = gradle.match(/release\s*\{/);
   if (releaseMatch) {
     const releaseOpen = gradle.indexOf('{', releaseMatch.index);
@@ -113,7 +106,7 @@ function injectSigning(gradle) {
       '\n            signingConfig signingConfigs.release' +
       gradle.slice(releaseOpen + 1);
   } else {
-    log('⚠️  Bloco "release {" não encontrado em buildTypes — assinatura pode não ser aplicada.');
+    log('⚠️  Bloco "release {" não encontrado em buildTypes.');
   }
 
   return gradle;
@@ -169,16 +162,6 @@ function injectPermissions(manifest) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function areSigningEnvPresent() {
-  const required = [
-    // 'ANDROID_KEYSTORE_PATH' possui default; as demais são obrigatórias.
-    'ANDROID_KEYSTORE_PASSWORD',
-    'ANDROID_KEY_ALIAS',
-    'ANDROID_KEY_PASSWORD',
-  ];
-  return required.every((k) => process.env[k] && process.env[k].length > 0);
-}
-
 function writeIfChanged(filePath, content) {
   if (fs.existsSync(filePath) && fs.readFileSync(filePath, 'utf8') === content) {
     log(`ℹ️  ${path.basename(filePath)} inalterado.`);
