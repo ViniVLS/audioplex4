@@ -2,19 +2,29 @@
  * Utilitários de formatação e sanitização
  */
 
+const WINDOWS_RESERVED = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+
 function sanitizeFilename(filename) {
     if (!filename) return 'audio';
-    return filename
+    let sanitized = filename
         .replace(/[\\/:\*\?"<>\|]/g, '') // remove caracteres proibidos no Windows
         .replace(/[\x00-\x1f\x80-\x9f]/g, '') // remove caracteres de controle
         .replace(/\s+/g, ' ') // normaliza espaços
         .trim()
         .substring(0, 150); // limita o tamanho
+
+    // Check for Windows reserved names (without extension)
+    const baseName = sanitized.split('.')[0];
+    if (WINDOWS_RESERVED.test(baseName)) {
+        sanitized = '_' + sanitized;
+    }
+
+    return sanitized || 'audio';
 }
 
 function formatDuration(seconds) {
-    const sec = parseInt(seconds, 10);
-    if (isNaN(sec) || sec < 0) return '00:00';
+    const sec = Math.floor(Number(seconds) || 0);
+    if (sec < 0) return '00:00';
     
     const hrs = Math.floor(sec / 3600);
     const mins = Math.floor((sec % 3600) / 60);

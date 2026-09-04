@@ -124,6 +124,16 @@ function downloadFile(req, res) {
         const fileName = decodeURIComponent(req.params.fileName);
         const filePath = path.join(DOWNLOADS_DIR, fileName);
 
+        // Path traversal protection: ensure resolved path is within DOWNLOADS_DIR
+        const resolvedPath = path.resolve(filePath);
+        const resolvedDownloadsDir = path.resolve(DOWNLOADS_DIR);
+        if (!resolvedPath.startsWith(resolvedDownloadsDir + path.sep) && resolvedPath !== resolvedDownloadsDir) {
+            return res.status(403).json({
+                success: false,
+                error: 'Acesso negado.'
+            });
+        }
+
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({
                 success: false,

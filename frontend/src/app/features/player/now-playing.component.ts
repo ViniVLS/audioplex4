@@ -48,8 +48,10 @@ export class NowPlayingComponent {
   }
 
   onSeek(event: Event): void {
-    const value = +(event.target as HTMLInputElement).value;
-    this.player.seek(value);
+    const percent = +(event.target as HTMLInputElement).value;
+    const duration = this.player.duration();
+    const seconds = (percent / 100) * duration;
+    this.player.seek(seconds);
   }
 
   onVolume(event: Event): void {
@@ -74,7 +76,9 @@ export class NowPlayingComponent {
     const track = this.player.currentTrack();
     if (!track) return;
 
-    const edgeFnUrl = `${environment.supabase.url}/functions/v1`;
+    const edgeFnUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? '/api'
+        : `${environment.supabase.url}/functions/v1`;
 
     try {
       const response = await this.http.post(`${edgeFnUrl}/extract-audio`, {

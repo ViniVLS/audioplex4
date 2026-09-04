@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { FfmpegConverter } from '../plugins/ffmpeg-converter';
 import { MediaSaver } from '../plugins/media-saver';
@@ -43,6 +44,12 @@ export class OfflineLibraryService {
     targetBitrate: '256k' | '320k' = '320k',
     onProgress?: (p: ConvertProgress) => void,
   ): Promise<OfflineTrack | null> {
+    // Offline features require native platform (Android/iOS)
+    if (!Capacitor.isNativePlatform()) {
+      onProgress?.({ stage: 'error', message: 'Offline features require Android or iOS app.' });
+      return null;
+    }
+
     try {
       onProgress?.({ stage: 'downloading', message: 'Salvando áudio bruto...' });
 
@@ -132,7 +139,9 @@ export class OfflineLibraryService {
       if (track.localPath) {
         await Filesystem.deleteFile({ path: track.localPath, directory: Directory.Data });
       }
-    } catch (_) { /* ignore */ }
+    } catch (err) {
+      console.warn('[OfflineLibrary] removeOffline deleteFile:', err);
+    }
 
     const updated = this._tracks().filter(t => t.trackId !== trackId);
     this._tracks.set(updated);

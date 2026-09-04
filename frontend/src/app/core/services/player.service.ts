@@ -43,6 +43,24 @@ export class PlayerService {
   private supabase = inject(SupabaseService).client;
   private auth     = inject(AuthService);
 
+  private get isLocalDev(): boolean {
+    return typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  }
+
+  private get apiUrl(): string | null {
+    return this.isLocalDev ? '/api/player' : null;
+  }
+
+  /** Safe fetch for local dev: checks HTTP status and parses JSON */
+  private async localFetch(path: string, options?: RequestInit): Promise<any> {
+    const res = await fetch(path, options);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    return res.json();
+  }
+
   // --------- Estado reativo (Signals) ---------
   private _currentTrack = signal<Track | null>(null);
   private _currentIndex = signal<number>(-1);
@@ -55,8 +73,13 @@ export class PlayerService {
   private _muted        = signal<boolean>(false);
   private _repeat       = signal<RepeatMode>('off');
   private _shuffle      = signal<boolean>(false);
+  private _shuffleHistory: number[] = [];
   private _expanded     = signal<boolean>(false);
   private _drawerOpen   = signal<boolean>(false);
+
+  // Seek request: incremented each time user seeks (para o AudioEngine detectar)
+  private _seekRequestId = signal<number>(0);
+  readonly seekRequestId = this._seekRequestId.asReadonly();
 
   // --------- Seletores públicos ---------
   readonly currentTrack = this._currentTrack.asReadonly();
@@ -93,7 +116,10 @@ export class PlayerService {
 
       if (isAuth && !this.bootstrapped) {
         this.bootstrapped = true;
-        void this.bootstrap();
+        void this.bootstrap().catch((err) => {
+          console.error('Player bootstrap failed:', err);
+          this.bootstrapped = false;
+        });
       } else if (!isAuth && this.bootstrapped) {
         this.bootstrapped = false;
         this.teardown();
@@ -107,9 +133,9 @@ export class PlayerService {
 
   /** Inicializa: busca fila do Supabase e inscreve no Realtime. */
   async bootstrap(): Promise<void> {
-    if (!this.auth.isAuthenticated()) return;
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
     await Promise.all([this.loadQueue(), this.loadPreferences()]);
-    this.subscribeRealtime();
+    if (!this.isLocalDev) this.subscribeRealtime();
   }
 
   /** Reproduz a faixa: se já existe na fila, só pula; senão, adiciona. */
@@ -135,36 +161,50 @@ export class PlayerService {
   }
 
   async addToQueue(track: Track): Promise<boolean> {
-    if (!this.auth.isAuthenticated()) return false;
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return false;
 
-    const { data, error } = await this.supabase.functions.invoke<{
-      success: boolean;
-      track: Track;
-      queueItem: { id: string; position: number };
-    }>('queue-add', { body: track });
+    let result: any;
+    if (this.isLocalDev) {
+      result = await this.localFetch('/api/player/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(track),
+      });
+    } else {
+      const { data, error } = await this.supabase.functions.invoke<{
+        success: boolean;
+        track: Track;
+        queueItem: { id: string; position: number };
+      }>('queue-add', { body: track });
+      if (error) {
+        console.error('addToQueue error:', error);
+        return false;
+      }
+      result = data;
+    }
 
-    if (error || !data?.success) {
-      console.error('addToQueue error:', error ?? data);
+    if (!result?.success) {
+      console.error('addToQueue error:', result);
       return false;
     }
 
-    // Recarrega fila (idempotente — pode não ter sido inserido se já existia)
     await this.loadQueue();
     return true;
   }
 
   async removeFromQueue(queueItemId: string): Promise<void> {
-    if (!this.auth.isAuthenticated()) return;
-    // Como ainda não temos queue-delete-Item, recarregamos a fila após delete via track
-    // Simplificação: remove localmente + deleta a track (cascata remove da fila)
-    const { error } = await this.supabase
-      .from('queue_items')
-      .delete()
-      .eq('id', queueItemId);
-
-    if (error) {
-      console.error('removeFromQueue error:', error);
-      return;
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
+    if (this.isLocalDev) {
+      await this.localFetch(`/api/player/queue/${queueItemId}`, { method: 'DELETE' });
+    } else {
+      const { error } = await this.supabase
+        .from('queue_items')
+        .delete()
+        .eq('id', queueItemId);
+      if (error) {
+        console.error('removeFromQueue error:', error);
+        return;
+      }
     }
     await this.loadQueue();
   }
@@ -182,8 +222,12 @@ export class PlayerService {
   }
 
   async clearQueue(): Promise<void> {
-    if (!this.auth.isAuthenticated()) return;
-    await this.supabase.functions.invoke('queue-clear');
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
+    if (this.isLocalDev) {
+      await this.localFetch('/api/player/queue', { method: 'DELETE' });
+    } else {
+      await this.supabase.functions.invoke('queue-clear');
+    }
     this._queue.set([]);
     this._currentIndex.set(-1);
     this._currentTrack.set(null);
@@ -191,8 +235,16 @@ export class PlayerService {
   }
 
   async reorderQueue(items: Array<{ id: string; position: number }>): Promise<void> {
-    if (!this.auth.isAuthenticated()) return;
-    await this.supabase.functions.invoke('queue-reorder', { body: { items } });
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
+    if (this.isLocalDev) {
+      await this.localFetch('/api/player/queue/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+    } else {
+      await this.supabase.functions.invoke('queue-reorder', { body: { items } });
+    }
     await this.loadQueue();
   }
 
@@ -231,8 +283,18 @@ export class PlayerService {
 
     // Shuffle: pega um índice aleatório diferente
     if (this._shuffle() && q.length > 1) {
-      let next = Math.floor(Math.random() * q.length);
-      if (next === i) next = (next + 1) % q.length;
+      // Se repeat=off e todos já foram tocados, para
+      if (this._repeat() === 'off' && this._shuffleHistory.length >= q.length) {
+        this._isPlaying.set(false);
+        this._currentTime.set(this._duration());
+        return;
+      }
+      // Pega índice não tocado ainda
+      let next: number;
+      const remaining = Array.from({ length: q.length }, (_, i) => i)
+        .filter(i => !this._shuffleHistory.includes(i));
+      next = remaining[Math.floor(Math.random() * remaining.length)];
+      this._shuffleHistory.push(next);
       this._currentIndex.set(next);
       this._currentTrack.set(q[next].track);
       this._isPlaying.set(true);
@@ -273,6 +335,7 @@ export class PlayerService {
 
   seek(seconds: number): void {
     this._currentTime.set(Math.max(0, Math.min(seconds, this._duration())));
+    this._seekRequestId.update(n => n + 1);
     this.persistCurrentPosition();
   }
 
@@ -296,6 +359,7 @@ export class PlayerService {
 
   toggleShuffle(): void {
     this._shuffle.update((s) => !s);
+    this._shuffleHistory = [];
     this.persistPreferences();
   }
 
@@ -315,39 +379,56 @@ export class PlayerService {
   // ============================================================
 
   private async loadQueue(): Promise<void> {
-    if (!this.auth.isAuthenticated()) return;
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
 
-    const { data, error } = await this.supabase.functions.invoke<{
-      success: boolean;
-      queue: QueueItem[];
-    }>('queue-list');
+    let result: any;
+    if (this.isLocalDev) {
+      result = await this.localFetch('/api/player/queue');
+    } else {
+      const { data, error } = await this.supabase.functions.invoke<{
+        success: boolean;
+        queue: QueueItem[];
+      }>('queue-list');
+      if (error) {
+        console.error('loadQueue error:', error);
+        return;
+      }
+      result = data;
+    }
 
-    if (error || !data?.success) {
-      console.error('loadQueue error:', error);
+    if (!result?.success) {
+      console.error('loadQueue error:', result);
       return;
     }
 
-    this._queue.set(data.queue ?? []);
+    this._queue.set(result.queue ?? []);
   }
 
   private async loadPreferences(): Promise<void> {
-    if (!this.auth.isAuthenticated()) return;
+    if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
 
-    const { data, error } = await this.supabase.functions.invoke<{
-      success: boolean;
-      preferences: {
-        volume: number;
-        muted: boolean;
-        repeat_mode: RepeatMode;
-        shuffle: boolean;
-        current_position_seconds: number;
-        current_track_id: string | null;
-      };
-    }>('preferences-get');
+    let result: any;
+    if (this.isLocalDev) {
+      result = await this.localFetch('/api/player/preferences');
+    } else {
+      const { data, error } = await this.supabase.functions.invoke<{
+        success: boolean;
+        preferences: {
+          volume: number;
+          muted: boolean;
+          repeat_mode: RepeatMode;
+          shuffle: boolean;
+          current_position_seconds: number;
+          current_track_id: string | null;
+        };
+      }>('preferences-get');
+      if (error || !data?.success) return;
+      result = data;
+    }
 
-    if (error || !data?.success) return;
+    if (!result?.success) return;
 
-    const p = data.preferences;
+    const p = result.preferences;
     this._volume.set(p.volume);
     this._muted.set(p.muted);
     this._repeat.set(p.repeat_mode);
@@ -365,31 +446,47 @@ export class PlayerService {
   }
 
   private persistPreferencesTimeout: ReturnType<typeof setTimeout> | null = null;
+  private persistPositionTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private persistPreferences(): void {
     if (this.persistPreferencesTimeout) clearTimeout(this.persistPreferencesTimeout);
     this.persistPreferencesTimeout = setTimeout(async () => {
-      if (!this.auth.isAuthenticated()) return;
-      await this.supabase.functions.invoke('preferences-update', {
-        body: {
-          volume:        this._volume(),
-          muted:         this._muted(),
-          repeatMode:    this._repeat(),
-          shuffle:       this._shuffle(),
-        },
-      });
+      if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
+      const body = {
+        volume:        this._volume(),
+        muted:         this._muted(),
+        repeatMode:    this._repeat(),
+        shuffle:       this._shuffle(),
+      };
+      if (this.isLocalDev) {
+        await this.localFetch('/api/player/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } else {
+        await this.supabase.functions.invoke('preferences-update', { body });
+      }
     }, 500);
   }
 
   private persistCurrentPosition(): void {
-    if (this.persistPreferencesTimeout) clearTimeout(this.persistPreferencesTimeout);
-    this.persistPreferencesTimeout = setTimeout(async () => {
-      if (!this.auth.isAuthenticated()) return;
-      await this.supabase.functions.invoke('preferences-update', {
-        body: {
-          currentTrackId:        this._currentTrack()?.id ?? null,
-          currentPositionSeconds: this._currentTime(),
-        },
-      });
+    if (this.persistPositionTimeout) clearTimeout(this.persistPositionTimeout);
+    this.persistPositionTimeout = setTimeout(async () => {
+      if (!this.isLocalDev && !this.auth.isAuthenticated()) return;
+      const body = {
+        currentTrackId:        this._currentTrack()?.id ?? null,
+        currentPositionSeconds: this._currentTime(),
+      };
+      if (this.isLocalDev) {
+        await this.localFetch('/api/player/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } else {
+        await this.supabase.functions.invoke('preferences-update', { body });
+      }
     }, 1000);
   }
 
@@ -407,9 +504,12 @@ export class PlayerService {
       .subscribe();
   }
 
+  private queueChangeTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private async handleQueueChange(payload: any): Promise<void> {
     // Recarrega fila (debounced)
-    setTimeout(() => this.loadQueue(), 200);
+    if (this.queueChangeTimeout) clearTimeout(this.queueChangeTimeout);
+    this.queueChangeTimeout = setTimeout(() => this.loadQueue(), 200);
   }
 
   private handlePrefsChange(payload: any): void {
@@ -455,5 +555,19 @@ export class PlayerService {
     this._currentIndex.set(-1);
     this._currentTrack.set(null);
     this._isPlaying.set(false);
+    this._isBuffering.set(false);
+    this._currentTime.set(0);
+    this._duration.set(0);
+    this._volume.set(0.80);
+    this._muted.set(false);
+    this._repeat.set('off');
+    this._shuffle.set(false);
+    this._shuffleHistory = [];
+    this._expanded.set(false);
+    this._drawerOpen.set(false);
+    this._seekRequestId.set(0);
+    if (this.persistPreferencesTimeout) clearTimeout(this.persistPreferencesTimeout);
+    if (this.persistPositionTimeout) clearTimeout(this.persistPositionTimeout);
+    if (this.queueChangeTimeout) clearTimeout(this.queueChangeTimeout);
   }
 }

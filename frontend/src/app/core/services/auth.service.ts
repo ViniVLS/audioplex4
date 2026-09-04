@@ -33,9 +33,21 @@ export class AuthService {
   });
 
   constructor() {
-    // Carrega sessão existente
+    // Carrega sessão existente com timeout de segurança
+    const loadTimeout = setTimeout(() => {
+      if (this._loading()) {
+        console.warn('[AuthService] getSession timeout — continuing without session');
+        this._loading.set(false);
+      }
+    }, 10_000);
+
     this.supabase.auth.getSession().then(({ data }) => {
+      clearTimeout(loadTimeout);
       this._session.set(data.session);
+      this._loading.set(false);
+    }).catch((err) => {
+      clearTimeout(loadTimeout);
+      console.error('[AuthService] getSession error:', err);
       this._loading.set(false);
     });
 
@@ -100,7 +112,7 @@ export class AuthService {
         return !!data?.session;
       }
 
-      const code = params.get('code') || new URL(url).searchParams.get('code');
+      const code = params.get('code');
       if (code) {
         const { data, error } = await this.supabase.auth.exchangeCodeForSession(code);
         if (error) {
@@ -169,8 +181,14 @@ export class AuthService {
   }
 
   // Refresh manual (normalmente automático)
-  async refreshSession(): Promise<void> {
-    await this.supabase.auth.refreshSession();
+  async refreshSession(): Promise<{ error?: string }> {
+    try {
+      const { error } = await this.supabase.auth.refreshSession();
+      return { error: error?.message };
+    } catch (err) {
+      console.error('[AuthService] refreshSession error:', err);
+      return { error: String(err) };
+    }
   }
 
   // Helper: User cru do Supabase

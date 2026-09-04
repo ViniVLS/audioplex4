@@ -35,6 +35,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   /** Guarda o último videoId carregado para evitar reload desnecessário. */
   private lastLoadedVideoId: string | null = null;
+  private lastSeekRequestId = 0;
 
   constructor() {
     // --- Effect: reage a troca de faixa + play/pause ---
@@ -54,7 +55,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         this.lastLoadedVideoId = track.video_id;
         void this.engine.load(track).then(() => {
           this.player.updateMediaSessionMetadata(track);
-          if (isPlaying) this.safePlay();
+          // Read fresh isPlaying value instead of stale captured one
+          if (this.player.isPlaying()) this.safePlay();
+        }).catch((err) => {
+          console.error('Audio load failed:', err);
+          this.player.forcePause();
         });
         return;
       }
@@ -68,6 +73,15 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       this.engine.setVolume(this.player.volume());
       this.engine.setMuted(this.player.muted());
+    });
+
+    // --- Effect: reage a seek do usuário ---
+    effect(() => {
+      const requestId = this.player.seekRequestId();
+      if (requestId !== this.lastSeekRequestId) {
+        this.lastSeekRequestId = requestId;
+        this.engine.seek(this.player.currentTime());
+      }
     });
   }
 

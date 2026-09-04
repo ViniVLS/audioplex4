@@ -11,6 +11,14 @@ const { formatDuration, formatViews } = require('./formatters');
 // Caminho do binário yt-dlp
 const YTDLP_PATH = path.join(__dirname, '../../bin/yt-dlp.exe');
 
+// Startup checks
+if (!fs.existsSync(YTDLP_PATH)) {
+    console.warn(`⚠️ yt-dlp binary not found at ${YTDLP_PATH}. Audio extraction will fail.`);
+}
+if (!ffmpegStatic) {
+    console.warn('⚠️ ffmpeg-static binary not found. Audio conversion will fail.');
+}
+
 /**
  * Formatos de áudio suportados e suas configurações FFmpeg
  */
@@ -122,6 +130,10 @@ async function fetchVideoInfo(url) {
 function downloadAndConvertAudio(url, outputPath, bitrate = '320k', format = 'mp3') {
     const cleanedUrl = cleanYoutubeUrl(url);
     const formatConfig = AUDIO_FORMATS[format] || AUDIO_FORMATS.mp3;
+
+    if (!ffmpegStatic) {
+        return Promise.reject(new Error('FFmpeg binary not available. Audio conversion cannot proceed.'));
+    }
 
     return new Promise((resolve, reject) => {
         // Mapear bitrate para qualidade de áudio do yt-dlp

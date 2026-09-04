@@ -89,12 +89,23 @@ export class HomeComponent implements OnInit {
     }
 
     private get edgeFnUrl() {
+        // Em desenvolvimento (localhost), usa o servidor local que tem yt-dlp
+        // Em produção (Android/cloud), usa as Edge Functions do Supabase
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return '/api';
+        }
         return `${environment.supabase.url}/functions/v1`;
     }
 
     loadHistory() {
         const stored = localStorage.getItem('downloadHistory');
-        if (stored) this.history = JSON.parse(stored);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            this.history = parsed.map((item: any) => ({
+                ...item,
+                date: new Date(item.date),
+            }));
+        }
     }
 
     saveToHistory(videoInfo: any, quality: string) {
@@ -124,13 +135,13 @@ export class HomeComponent implements OnInit {
             next: (response) => {
                 this.isLoading = false;
                 this.progressMessage = '';
-                this.cdr.detectChanges();
                 if (response.success && response.videoInfo) {
-                    this.videoInfo = { ...response.videoInfo, videoId: response.videoId };
+                    this.videoInfo = { ...response.videoInfo, videoId: response.videoInfo.id };
                     this.toastr.success('Vídeo encontrado com sucesso!', 'Sucesso');
                 } else {
                     this.toastr.error(response.error || 'Erro ao buscar vídeo', 'Erro');
                 }
+                this.cdr.detectChanges();
             },
             error: (error) => {
                 this.isLoading = false;
@@ -161,7 +172,12 @@ export class HomeComponent implements OnInit {
                 this.cdr.detectChanges();
 
                 const audioInfoHeader = response.headers.get('X-Audio-Info');
-                const audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+                let audioInfo = null;
+                try {
+                    audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+                } catch (e) {
+                    console.warn('Failed to parse X-Audio-Info:', e);
+                }
                 const blob = response.body as Blob;
 
                 const track = {
@@ -171,8 +187,8 @@ export class HomeComponent implements OnInit {
                     author: this.videoInfo?.author,
                     thumbnail: this.videoInfo?.thumbnail,
                     duration: typeof this.videoInfo?.duration === 'string'
-                        ? parseInt(this.videoInfo.duration, 10)
-                        : this.videoInfo?.duration,
+                        ? (parseInt(this.videoInfo.duration, 10) || 0)
+                        : (this.videoInfo?.duration ?? 0),
                     source_url: this.youtubeUrl.value ?? '',
                 };
 
@@ -188,7 +204,6 @@ export class HomeComponent implements OnInit {
                 ).then((result) => {
                     this.isExtracting = false;
                     this.progressMessage = '';
-                    this.cdr.detectChanges();
 
                     if (result) {
                         this.toastr.success(
@@ -202,6 +217,13 @@ export class HomeComponent implements OnInit {
                     } else {
                         this.toastr.error('Erro ao converter/salvar áudio.', 'Erro');
                     }
+                    this.cdr.detectChanges();
+                }).catch((err) => {
+                    this.isExtracting = false;
+                    this.progressMessage = '';
+                    this.cdr.detectChanges();
+                    this.toastr.error('Erro ao salvar áudio offline.', 'Erro');
+                    console.error('extractAndSave error:', err);
                 });
             },
             error: (error) => {
@@ -230,10 +252,14 @@ export class HomeComponent implements OnInit {
         }, { responseType: 'blob', observe: 'response' }).subscribe({
             next: (response) => {
                 this.isExtracting = false;
-                this.cdr.detectChanges();
 
                 const audioInfoHeader = response.headers.get('X-Audio-Info');
-                const audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+                let audioInfo = null;
+                try {
+                    audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+                } catch (e) {
+                    console.warn('Failed to parse X-Audio-Info:', e);
+                }
                 const blob = response.body as Blob;
                 const fileName = audioInfo?.fileName ?? `audio-${this.videoInfo?.videoId}.webm`;
 
@@ -245,6 +271,7 @@ export class HomeComponent implements OnInit {
                     audioInfo?.bitrate ? `${Math.round(audioInfo.bitrate / 1000)}k` : 'unknown',
                 );
 
+                this.cdr.detectChanges();
                 saveAs(blob, fileName);
             },
             error: (error) => {

@@ -4,27 +4,35 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
+const GUARD_TIMEOUT_MS = 10_000;
+
+function waitForAuth(auth: AuthService): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (!auth.loading()) { resolve(); return; }
+    let resolved = false;
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+    const timeout = setTimeout(() => { cleanup(); resolve(); }, GUARD_TIMEOUT_MS);
+    const interval = setInterval(() => {
+      if (!auth.loading()) { cleanup(); resolve(); }
+    }, 50);
+  });
+}
+
 export const authGuard: CanActivateFn = async (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  // Aguarda o carregamento inicial da sessão
-  if (auth.loading()) {
-    await new Promise<void>((resolve) => {
-      const interval = setInterval(() => {
-        if (!auth.loading()) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 50);
-    });
-  }
+  await waitForAuth(auth);
 
   if (auth.isAuthenticated()) {
     return true;
   }
 
-  // Redireciona para login preservando URL de retorno
   return router.createUrlTree(['/login'], {
     queryParams: { returnUrl: state.url },
   });
@@ -34,17 +42,7 @@ export const guestGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  if (auth.loading()) {
-    await new Promise<void>((resolve) => {
-      const interval = setInterval(() => {
-        if (!auth.loading()) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 50);
-    });
-  }
+  await waitForAuth(auth);
 
-  // Se já está logado, redireciona para home
   return auth.isAuthenticated() ? router.createUrlTree(['/']) : true;
 };

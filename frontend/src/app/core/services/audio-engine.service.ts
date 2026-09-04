@@ -59,6 +59,8 @@ export class AudioEngineService {
   /** Chamado pelo componente host para injetar o elemento <audio> (web). */
   attach(audio: HTMLAudioElement): void {
     if (this.isNative) return;
+    // Clean up old listeners before attaching to new element
+    this.detach();
     this.audio = audio;
     audio.addEventListener('timeupdate',     this.onTimeUpdate);
     audio.addEventListener('durationchange', this.onDurationChange);
@@ -98,7 +100,10 @@ export class AudioEngineService {
       }
     }
 
-    if (!this.audio) return;
+    if (!this.audio) {
+      console.warn('AudioEngine: audio element not attached. Call attach() first.');
+      return;
+    }
     this.audio.src = streamUrl;
     this.audio.load();
   }
@@ -161,6 +166,9 @@ export class AudioEngineService {
 
     const token = await this.auth.getAccessToken();
     const query = token ? `&token=${encodeURIComponent(token)}` : '';
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `/api/stream?videoId=${track.video_id}${query}`;
+    }
     return `${environment.supabase.url}/functions/v1/stream?videoId=${track.video_id}${query}`;
   }
 
