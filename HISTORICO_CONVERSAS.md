@@ -282,4 +282,23 @@
 
 ---
 
+## [2026-09-03 22:30:00] - FIX
+
+**Intenção:** Corrigir erro de parsing do AndroidManifest.xml no GitHub Actions
+**Ação realizada:** 
+1. Lido erro: `ManifestMerger2$MergeFailureException: Error parsing AndroidManifest.xml`
+2. Identificado que `android/` não é versionado (gerado no CI)
+3. Analisado `prepare-android.cjs` - função `injectPermissions` usava `indexOf('>')` frágil
+4. Substituído por regex `<manifest[^>]*>` para encontrar a tag com segurança
+5. Commit e push: `2d4c867`
+**Arquivos afetados:** 
+- `scripts/prepare-android.cjs` (corrigido - parsing robusto do manifest)
+**Resultado:** Sucesso - Script agora usa regex segura
+**Observações:** 
+- Abordagem anterior: `manifest.indexOf('>')` - frágil se houver `>` antes da tag
+- Nova abordagem: `manifest.match(/<manifest[^>]*>/)` - encontra tag correta
+- Testado localmente com sucesso
+
+---
+
 > **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se build do GitHub Actions completa com sucesso
