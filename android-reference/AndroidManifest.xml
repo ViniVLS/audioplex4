@@ -32,10 +32,10 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!-- Serviço de mídia do plugin @capacitor-community/media -->
+        <!-- Serviço de mídia (foreground service) para reprodução em background. -->
         <service
-            android:name="com.getcapacitor.community.media.MediaNotificationService"
-            android:exported="false"
+            android:name=".plugins.MediaPlaybackService"
+            android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
@@ -52,6 +52,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep link: retorno do OAuth (com.audioplex4://auth/callback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.audioplex4" />
             </intent-filter>
         </activity>
 

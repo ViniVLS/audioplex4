@@ -16,10 +16,12 @@ import {
 import { FormControl, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { saveAs } from 'file-saver';
 import { AuthService } from '../../core/services/auth.service';
 import { PlayerService } from '../../core/services/player.service';
+import { OfflineLibraryService, ConvertProgress } from '../../core/services/offline-library.service';
 import { environment } from '../../../environments/environment';
 
 interface VideoInfo {
@@ -54,6 +56,7 @@ export class HomeComponent implements OnInit {
     private cdr    = inject(ChangeDetectorRef);
     auth         = inject(AuthService);
     private player       = inject(PlayerService);
+    private offlineLib   = inject(OfflineLibraryService);
 
     youtubeUrl = new FormControl('', [
         Validators.required,
@@ -64,8 +67,10 @@ export class HomeComponent implements OnInit {
     isLoading = false;
     isExtracting = false;
     progressMessage = '';
-    audioQuality: 'high' | 'medium' | 'low' = 'high';
-    audioFormat: 'mp3' | 'aac' | 'wav' | 'flac' = 'mp3';
+
+    // Formato e bitrate de saída
+    targetFormat: 'mp3' | 'aac' = 'mp3';
+    targetBitrate: '320k' | '256k' = '320k';
 
     testVideos = [
         { title: 'Rick Astley - Never Gonna Give You Up', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
@@ -138,6 +143,78 @@ export class HomeComponent implements OnInit {
         });
     }
 
+    extractAndSave() {
+        if (!this.videoInfo) {
+            this.toastr.warning('Busque as informações do vídeo primeiro!', 'Atenção');
+            return;
+        }
+
+        this.isExtracting = true;
+        this.progressMessage = 'Extraindo áudio...';
+
+        this.http.post(`${this.edgeFnUrl}/extract-audio`, {
+            url: this.youtubeUrl.value,
+            trackId: this.videoInfo.videoId,
+        }, { responseType: 'blob', observe: 'response' }).subscribe({
+            next: (response) => {
+                this.progressMessage = 'Áudio extraído. Convertendo e salvando...';
+                this.cdr.detectChanges();
+
+                const audioInfoHeader = response.headers.get('X-Audio-Info');
+                const audioInfo = audioInfoHeader ? JSON.parse(audioInfoHeader) : null;
+                const blob = response.body as Blob;
+
+                const track = {
+                    id: this.videoInfo?.videoId ?? Date.now().toString(),
+                    video_id: this.videoInfo?.videoId ?? '',
+                    title: this.videoInfo?.title ?? 'Sem título',
+                    author: this.videoInfo?.author,
+                    thumbnail: this.videoInfo?.thumbnail,
+                    duration: typeof this.videoInfo?.duration === 'string'
+                        ? parseInt(this.videoInfo.duration, 10)
+                        : this.videoInfo?.duration,
+                    source_url: this.youtubeUrl.value ?? '',
+                };
+
+                this.offlineLib.extractAndSave(
+                    track as any,
+                    blob,
+                    this.targetFormat,
+                    this.targetBitrate,
+                    (progress: ConvertProgress) => {
+                        this.progressMessage = progress.message ?? '';
+                        this.cdr.detectChanges();
+                    },
+                ).then((result) => {
+                    this.isExtracting = false;
+                    this.progressMessage = '';
+                    this.cdr.detectChanges();
+
+                    if (result) {
+                        this.toastr.success(
+                            `Áudio salvo como ${result.localFormat.toUpperCase()} ${result.localBitrate}!`,
+                            'Sucesso',
+                        );
+                        this.saveToHistory(
+                            audioInfo?.videoInfo ?? this.videoInfo,
+                            `${result.localFormat.toUpperCase()} ${result.localBitrate}`,
+                        );
+                    } else {
+                        this.toastr.error('Erro ao converter/salvar áudio.', 'Erro');
+                    }
+                });
+            },
+            error: (error) => {
+                this.isExtracting = false;
+                this.progressMessage = '';
+                this.cdr.detectChanges();
+                const errMsg = error.error?.error || error.message || 'Erro ao processar extração de áudio.';
+                this.toastr.error(errMsg, 'Erro');
+                console.error('Erro na extração:', error);
+            },
+        });
+    }
+
     extractAudio() {
         if (!this.videoInfo) {
             this.toastr.warning('Busque as informações do vídeo primeiro!', 'Atenção');
@@ -147,8 +224,6 @@ export class HomeComponent implements OnInit {
         this.isExtracting = true;
         this.progressMessage = 'Extraindo áudio...';
 
-        // A Edge Function retorna os bytes de áudio diretamente (blob)
-        // com headers X-Audio-Info (container, codec, bitrate, fileName, videoInfo)
         this.http.post(`${this.edgeFnUrl}/extract-audio`, {
             url: this.youtubeUrl.value,
             trackId: this.videoInfo.videoId,
@@ -170,8 +245,6 @@ export class HomeComponent implements OnInit {
                     audioInfo?.bitrate ? `${Math.round(audioInfo.bitrate / 1000)}k` : 'unknown',
                 );
 
-                // Download do arquivo de áudio bruto (webm/opus ou m4a)
-                // No Android/Capacitor, futuramente será salvo via plugin nativo
                 saveAs(blob, fileName);
             },
             error: (error) => {
@@ -199,7 +272,6 @@ export class HomeComponent implements OnInit {
         this.showHistory = !this.showHistory;
     }
 
-    /** Adiciona o vídeo atual à fila e começa a tocar. */
     playNow() {
         if (!this.videoInfo) return;
         const track = {

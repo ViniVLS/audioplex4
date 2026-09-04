@@ -77,6 +77,22 @@
                 </mat-card-content>
             </mat-card>
 
+            <!-- Seleção de formato e bitrate -->
+            <div class="format-selection">
+                <h3>Formato de saída:</h3>
+                <div class="format-options">
+                    <mat-radio-group [(ngModel)]="targetFormat" class="format-radio-group">
+                        <mat-radio-button value="mp3">MP3</mat-radio-button>
+                        <mat-radio-button value="aac">AAC</mat-radio-button>
+                    </mat-radio-group>
+
+                    <mat-radio-group [(ngModel)]="targetBitrate" class="bitrate-radio-group">
+                        <mat-radio-button value="320k">320kbps</mat-radio-button>
+                        <mat-radio-button value="256k">256kbps</mat-radio-button>
+                    </mat-radio-group>
+                </div>
+            </div>
+
             <!-- Botões de ação -->
             <div class="action-buttons">
                 <button mat-raised-button
@@ -90,10 +106,17 @@
                 <button mat-raised-button
                         color="accent"
                         class="extract-button"
+                        (click)="extractAndSave()"
+                        [disabled]="isExtracting || isLoading">
+                    <mat-icon>download</mat-icon>
+                    {{ isExtracting ? 'Processando...' : 'Extrair e Salvar' }}
+                </button>
+                <button mat-stroked-button
+                        class="raw-download-button"
                         (click)="extractAudio()"
                         [disabled]="isExtracting || isLoading">
-                    <mat-icon>music_note</mat-icon>
-                    {{ isExtracting ? 'Extraindo...' : 'Extrair e Baixar Áudio' }}
+                    <mat-icon>save_alt</mat-icon>
+                    Download Bruto
                 </button>
             </div>
         </div>

@@ -26,10 +26,15 @@ const TARGET = path.join(
 const SUPABASE_URL = process.env.NG_APP_SUPABASE_URL || '__SUPABASE_URL__';
 const SUPABASE_ANON_KEY = process.env.NG_APP_SUPABASE_ANON_KEY || '__SUPABASE_ANON_KEY__';
 
+const pkg = require(path.join(__dirname, '..', 'package.json'));
+const VERSION = pkg.version || '1.0.0';
+
 const content = `// frontend/src/environments/environment.production.ts
 // GERADO AUTOMATICAMENTE por scripts/write-env.cjs — NÃO EDITE MANUALMENTE.
 export const environment = {
   production: true,
+
+  version: '${VERSION}',
 
   supabase: {
     url: '${SUPABASE_URL}',

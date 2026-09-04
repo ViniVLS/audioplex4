@@ -11,15 +11,27 @@ export interface AuthContext {
 }
 
 export async function authenticate(req: Request): Promise<AuthContext> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Suporta o token via header Authorization OU query param ?token=.
+  // O ?token= é necessário para players que não enviam headers customizados
+  // (ex.: <audio> HTML e ExoPlayer nativo no Android).
+  let jwt = req.headers.get('Authorization');
+  if (jwt && jwt.startsWith('Bearer ')) {
+    jwt = jwt.replace('Bearer ', '');
+  } else {
+    jwt = null;
+  }
+
+  if (!jwt) {
+    const url = new URL(req.url);
+    jwt = url.searchParams.get('token');
+  }
+
+  if (!jwt) {
     throw new Response(
       JSON.stringify({ success: false, error: 'Token de autenticação ausente.' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
-
-  const jwt = authHeader.replace('Bearer ', '');
 
   // Cliente Supabase com o JWT do usuário (RLS respeitado)
   const supabase = createClient(

@@ -27,6 +27,7 @@ import { ToastrModule } from 'ngx-toastr';
 import { AppRoutingModule } from './app-routing-module';
 import { AppComponent } from './app';
 import { LoginComponent } from './features/auth/login.component';
+import { AuthCallbackComponent } from './features/auth/auth-callback.component';
 import { HomeComponent } from './features/home/home.component';
 import { MiniPlayerComponent } from './features/player/mini-player.component';
 import { NowPlayingComponent } from './features/player/now-playing.component';
@@ -37,6 +38,7 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
     declarations: [
         AppComponent,
         LoginComponent,
+        AuthCallbackComponent,
         HomeComponent,
         MiniPlayerComponent,
         NowPlayingComponent,

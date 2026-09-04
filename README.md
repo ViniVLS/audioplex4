@@ -7,7 +7,7 @@ Extraia e ouça áudios de vídeos do YouTube em alta qualidade, com player inte
 | Camada | Tecnologia |
 |---|---|
 | Frontend | Angular 21 + Material + Signals + RxJS |
-| Player | HTMLAudioElement + MediaSession API (+ Capacitor Media para nativo) |
+| Player | HTMLAudioElement + MediaSession API |
 | Auth | Supabase Auth (email + Google + GitHub) |
 | Banco | Supabase Postgres (RLS + Realtime) |
 | Backend | Supabase Edge Functions (Deno) — sem servidor Express |
@@ -159,11 +159,18 @@ supabase functions deploy --project-ref fgvcjxgwpwjohqumzziv
 
 ---
 
-## Plugins nativos Android (a implementar)
+## Plugins nativos Android
 
 | Plugin | Função |
 |---|---|
-| `ffmpeg-converter` | Converte áudio no device (FFmpegKit full-gpl) |
-| `media-saver` | Salva arquivos na pasta Downloads pública (MediaStore) |
+| `FfmpegConverterPlugin` | Converte áudio no device (FFmpegKit full-gpl) |
+| `MediaSaverPlugin` | Salva arquivos na pasta Downloads pública (MediaStore) |
 
-Esses plugins serão implementados na Fase 2 do desenvolvimento.
+Os fontes Java ficam versionados em `android-reference/plugins/` e são copiados
+para o projeto gerado (`android/`) pelo script `scripts/sync-android-native.cjs`,
+que também injeta a dependência do FFmpegKit no `build.gradle`. Esse script é
+chamado automaticamente por `scripts/prepare-android.cjs` (CI incluído).
+
+> ⚠️ Reprodução de áudio **em background** exige um foreground service nativo
+> (MediaSession + ExoPlayer/Media3), ainda não implementado. O player atual
+> (`HTMLAudioElement`) toca normalmente com o app aberto.

@@ -16,6 +16,7 @@ import {
 } from '@angular/core';
 import { PlayerService } from './core/services/player.service';
 import { AudioEngineService } from './core/services/audio-engine.service';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -26,6 +27,8 @@ import { AudioEngineService } from './core/services/audio-engine.service';
 export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild('audioEl', { static: true })
   audioRef!: ElementRef<HTMLAudioElement>;
+
+  readonly version = environment.version;
 
   private player = inject(PlayerService);
   private engine = inject(AudioEngineService);

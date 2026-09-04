@@ -15,10 +15,11 @@
     "android:prepare": "node scripts/write-env.cjs && cd frontend && ng build --configuration production && cd .. && npx cap sync android && node scripts/prepare-android.cjs"
   },
   "dependencies": {
-    "@capacitor-community/media": "^8.0.1",
     "@capacitor/android": "^8.5.1",
+    "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.5.1",
     "@capacitor/core": "^8.5.1",
+    "@capacitor/filesystem": "^7.1.8",
     "@distube/ytdl-core": "^4.16.4",
     "axios": "^1.7.9",
     "compression": "^1.8.1",
@@ -33,7 +34,7 @@
     "play-dl": "^1.9.7",
     "ytdl-core": "^4.11.5"
   },
-"devDependencies": {
+  "devDependencies": {
     "@angular/cli": "^21.2.22",
     "nodemon": "^3.1.0",
     "typescript": "~5.9.2"

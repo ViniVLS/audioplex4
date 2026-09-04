@@ -53,3 +53,7 @@ Thumbs.db
 # ===== Runtime =====
 coverage/
 *.tsbuildinfo
+
+# ===== Temporary deploy files =====
+supabase/deploy-manual/
+supabase/.temp/

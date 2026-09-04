@@ -23,6 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { sync: syncNative } = require('./sync-android-native.cjs');
 
 const ANDROID_APP_DIR = path.join(__dirname, '..', 'android', 'app');
 const BUILD_GRADLE   = path.join(ANDROID_APP_DIR, 'build.gradle');
@@ -198,6 +199,9 @@ function main() {
   } else {
     log('⚠️  AndroidManifest.xml não encontrado.');
   }
+
+  // Plugins nativos (FFmpeg + MediaSaver) — fontes versionados em android-reference/
+  syncNative();
 
   log('Concluído.');
 }

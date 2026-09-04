@@ -3,6 +3,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { SupabaseService } from './supabase.service';
 import { AppUser } from '../models/user.model';
 
@@ -42,6 +44,55 @@ export class AuthService {
       this._session.set(session);
       this._loading.set(false);
     });
+
+    // Deep links de OAuth (apenas nativo Android/iOS)
+    if (Capacitor.isNativePlatform()) {
+      this.setupDeepLinks();
+    }
+  }
+
+  // URL de retorno do OAuth: deep link no nativo, callback no browser.
+  private get redirectUrl(): string {
+    return Capacitor.isNativePlatform()
+      ? 'com.audioplex4://auth/callback'
+      : `${window.location.origin}/auth/callback`;
+  }
+
+  // Captura o retorno do OAuth via deep link (com.audioplex4://auth/callback).
+  private setupDeepLinks(): void {
+    App.addListener('appUrlOpen', ({ url }) => {
+      void this.processOAuthRedirect(url).then((ok) => {
+        if (ok) this.router.navigateByUrl('/');
+      });
+    });
+
+    // Caso o app seja aberto a frio já na URL de retorno.
+    App.getLaunchUrl()
+      .then((launch) => {
+        if (launch?.url) {
+          void this.processOAuthRedirect(launch.url).then((ok) => {
+            if (ok) this.router.navigateByUrl('/');
+          });
+        }
+      })
+      .catch(() => { /* sem URL de launch */ });
+  }
+
+  async processOAuthRedirect(url: string): Promise<boolean> {
+    try {
+      const { data, error } = await this.supabase.auth.getSessionFromUrl({ url });
+      if (error) {
+        console.error('OAuth redirect error:', error);
+        return false;
+      }
+      if (data?.session) {
+        this._session.set(data.session);
+      }
+      return !!data?.session;
+    } catch (e) {
+      console.error('processOAuthRedirect error:', e);
+      return false;
+    }
   }
 
   // ----------------------- Métodos públicos -----------------------
@@ -57,7 +108,7 @@ export class AuthService {
       password,
       options: {
         data: { full_name: displayName ?? null },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: this.redirectUrl,
       },
     });
     return { error: error?.message };
@@ -66,7 +117,7 @@ export class AuthService {
   async signInWithGoogle(): Promise<{ error?: string }> {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: this.redirectUrl },
     });
     return { error: error?.message };
   }
@@ -74,7 +125,7 @@ export class AuthService {
   async signInWithGitHub(): Promise<{ error?: string }> {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: this.redirectUrl },
     });
     return { error: error?.message };
   }
