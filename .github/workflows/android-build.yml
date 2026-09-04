@@ -55,8 +55,11 @@ jobs:
         working-directory: frontend
 
       # ---------------------------------------------------------------
-      # Build Angular
+      # Versioning + Build Angular
       # ---------------------------------------------------------------
+      - name: Bump version (auto-increment)
+        run: node scripts/bump-version.cjs patch
+
       - name: Write production environment
         env:
           NG_APP_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -68,15 +71,12 @@ jobs:
         working-directory: frontend
 
       # ---------------------------------------------------------------
-      # Capacitor (add + sync)
+      # Capacitor Sync
       # ---------------------------------------------------------------
-      - name: Add Android platform
-        run: npx cap add android
-
       - name: Capacitor Sync
         run: npx cap sync android
 
-      - name: Prepare Android (signing + permissions)
+      - name: Prepare Android (signing only)
         run: node scripts/prepare-android.cjs
 
       # ---------------------------------------------------------------
@@ -144,3 +144,15 @@ jobs:
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
+
+      # ---------------------------------------------------------------
+      # Commit version bump (main branch only)
+      # ---------------------------------------------------------------
+      - name: Commit version bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: bump version to $(node -p "require('./package.json').version")"
+          git push
