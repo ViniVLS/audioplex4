@@ -93,19 +93,26 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          STORE_PASS="${ANDROID_KEYSTORE_PASSWORD}"
+          KEY_PASS="${ANDROID_KEY_PASSWORD}"
+          [ ${#STORE_PASS} -lt 6 ] && STORE_PASS="${STORE_PASS}Pass123"
+          [ ${#KEY_PASS} -lt 6 ] && KEY_PASS="${KEY_PASS}Pass123"
+
           echo "${ANDROID_KEYSTORE_BASE64}" | tr -d '[:space:]' | base64 --decode > android/app/release.keystore || true
-          if ! keytool -list -keystore android/app/release.keystore -storepass "${ANDROID_KEYSTORE_PASSWORD}" > /dev/null 2>&1; then
+          if ! keytool -list -keystore android/app/release.keystore -storepass "${STORE_PASS}" > /dev/null 2>&1; then
             echo "Keystore inválido ou ausente. Gerando novo keystore..."
             keytool -genkeypair -v \
               -keystore android/app/release.keystore \
-              -storepass "${ANDROID_KEYSTORE_PASSWORD}" \
-              -keypass "${ANDROID_KEY_PASSWORD}" \
+              -storepass "${STORE_PASS}" \
+              -keypass "${KEY_PASS}" \
               -alias "${ANDROID_KEY_ALIAS}" \
               -keyalg RSA -keysize 2048 \
               -validity 10000 \
               -dname "CN=AudioPlex4, OU=Dev, O=AudioPlex4, L=SP, ST=SP, C=BR"
           fi
-          keytool -list -keystore android/app/release.keystore -storepass "${ANDROID_KEYSTORE_PASSWORD}"
+          keytool -list -keystore android/app/release.keystore -storepass "${STORE_PASS}"
+          echo "KEYSTORE_PASS=${STORE_PASS}" >> $GITHUB_ENV
+          echo "KEY_PASS=${KEY_PASS}" >> $GITHUB_ENV
 
       - name: Prepare Android (version + signing + plugins)
         run: node scripts/prepare-android.cjs
@@ -126,20 +133,18 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           ANDROID_KEYSTORE_PATH: release.keystore
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           ./gradlew bundleRelease --no-daemon \
-            -PANDROID_KEYSTORE_PATH="$ANDROID_KEYSTORE_PATH" \
-            -PANDROID_KEYSTORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
-            -PANDROID_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
-            -PANDROID_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+            -PANDROID_KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH}" \
+            -PANDROID_KEYSTORE_PASSWORD="${KEYSTORE_PASS}" \
+            -PANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS}" \
+            -PANDROID_KEY_PASSWORD="${KEY_PASS}"
           ./gradlew assembleRelease --no-daemon \
-            -PANDROID_KEYSTORE_PATH="$ANDROID_KEYSTORE_PATH" \
-            -PANDROID_KEYSTORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
-            -PANDROID_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
-            -PANDROID_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+            -PANDROID_KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH}" \
+            -PANDROID_KEYSTORE_PASSWORD="${KEYSTORE_PASS}" \
+            -PANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS}" \
+            -PANDROID_KEY_PASSWORD="${KEY_PASS}"
         working-directory: android
 
       # ---------------------------------------------------------------
