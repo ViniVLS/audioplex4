@@ -118,10 +118,11 @@ public class FfmpegConverterPlugin extends Plugin {
     @PluginMethod
     public void getAvailableEncoders(PluginCall call) {
         try {
-            String[] encoders = FFmpegKitConfig.getFFmpegEncoders();
+            FFmpegSession session = FFmpegKit.execute("-encoders");
+            String encoders = session.getAllLogsAsString();
             JSObject result = new JSObject();
             result.put("success", true);
-            result.put("encoders", encoders != null ? String.join(",", encoders) : "");
+            result.put("encoders", encoders != null ? encoders : "");
             call.resolve(result);
         } catch (Exception e) {
             call.reject("Erro ao listar encoders: " + e.getMessage());
