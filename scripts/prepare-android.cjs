@@ -25,9 +25,11 @@ const fs = require('fs');
 const path = require('path');
 const { sync: syncNative } = require('./sync-android-native.cjs');
 
-const ANDROID_APP_DIR = path.join(__dirname, '..', 'android', 'app');
+const ROOT         = path.join(__dirname, '..');
+const ANDROID_APP_DIR = path.join(ROOT, 'android', 'app');
 const BUILD_GRADLE   = path.join(ANDROID_APP_DIR, 'build.gradle');
 const MANIFEST       = path.join(ANDROID_APP_DIR, 'src', 'main', 'AndroidManifest.xml');
+const PACKAGE_JSON   = path.join(ROOT, 'package.json');
 
 function log(msg) {
   console.log(`[prepare-android] ${msg}`);
@@ -44,6 +46,30 @@ function findAndroidBlock(gradle) {
     return { gradle, modified: false };
   }
   return { gradle, index: match.index, modified: true };
+}
+
+// ---------------------------------------------------------------------------
+// 0. Update version in build.gradle (versionCode + versionName)
+// ---------------------------------------------------------------------------
+function injectVersion(gradle) {
+  if (!fs.existsSync(PACKAGE_JSON)) {
+    log('⚠️  package.json não encontrado — pulando versionamento.');
+    return gradle;
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON, 'utf8'));
+  const version = pkg.version || '1.0.0';
+  const versionCode = Math.floor(Date.now() / 1000);
+
+  if (gradle.includes(`versionName "${version}"`)) {
+    log('ℹ️  Versão já está atualizada no build.gradle.');
+    return gradle;
+  }
+
+  gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+  gradle = gradle.replace(/versionName\s+"[^"]*"/, `versionName "${version}"`);
+  log(`✅ Versão ${version} (code: ${versionCode}) aplicada ao build.gradle.`);
+  return gradle;
 }
 
 function injectSigning(gradle) {
@@ -171,6 +197,7 @@ function main() {
   // build.gradle
   if (fs.existsSync(BUILD_GRADLE)) {
     let gradle = fs.readFileSync(BUILD_GRADLE, 'utf8');
+    gradle = injectVersion(gradle);
     gradle = injectSigning(gradle);
     writeIfChanged(BUILD_GRADLE, gradle);
   } else {

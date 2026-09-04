@@ -327,3 +327,60 @@
 ---
 
 > **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se build do GitHub Actions completa com sucesso
+
+---
+
+## [2026-09-04 10:00:00] - FIX
+
+**Intenção:** Corrigir erro "android platform has not been added yet" no GitHub Actions
+**Ação realizada:** 
+1. Identificado que `android/` está no `.gitignore` (linha 23) - não é versionado
+2. No CI, checkout não tem diretório `android/`, então `npx cap sync android` falha
+3. Adicionado step `npx cap add android` ANTES do `npx cap sync android` no workflow
+4. Commit e push: `96dd58d`
+**Arquivos afetados:** 
+- `.github/workflows/android-build.yml` (corrigido - adicionado `cap add android`)
+**Resultado:** Sucesso - Workflow agora cria o diretório Android antes de sincronizar
+**Observações:** 
+- `android/` é gitignoreado (gerado no CI)
+- Sequência correta: cap add → cap sync → prepare-android → build
+- Erro anterior: tentava sync sem existir o diretório
+
+---
+
+## [2026-09-04 10:15:00] - FIX
+
+**Intenção:** Corrigir erro "invalid source release: 21" no build Gradle
+**Ação realizada:** 
+1. Identificado que Capacitor Android requer Java 21
+2. Workflow estava com `java-version: '17'`
+3. Alterado para `java-version: '21'`
+4. Commit e push: `d07be6d`
+**Arquivos afetados:** 
+- `.github/workflows/android-build.yml` (corrigido - Java 17 → 21)
+**Resultado:** Sucesso - Build deve compilar com Java 21
+**Observações:** 
+- Capacitor Android 8.x requer Java 21 (source release 21)
+- Java 17 não suporta source release 21
+
+---
+
+## [2026-09-04 10:30:00] - FIX
+
+**Intenção:** Corrigir 2 erros de compilação Java no plugin FFmpeg (FFmpegKit API desatualizada)
+**Ação realizada:** 
+1. `FFprobeKit.getMediaInformation(path)` retorna `MediaInformationSession` não `MediaInformation`
+   - Fix: `MediaInformationSession session = FFprobeKit.getMediaInformation(path)` → `session.getMediaInformation()`
+2. `FFmpegKitConfig.getLastCommandOutput()` removido no FFmpegKit v7
+   - Fix: Substituído por `FFmpegKitConfig.getFFmpegEncoders()` que retorna `String[]`
+3. Adicionado import `MediaInformationSession`
+4. Corrigido tanto em `android-reference/plugins/` (fonte) quanto `android/` (local)
+5. Commit e push: `c49f58b`
+**Arquivos afetados:** 
+- `android-reference/plugins/FfmpegConverterPlugin.java` (corrigido - API FFmpegKit v7)
+- `android/app/src/main/java/com/audioplex4/plugins/FfmpegConverterPlugin.java` (corrigido local)
+**Resultado:** Sucesso - Compilação deve passar agora
+**Observações:** 
+- FFmpegKit v7 mudou APIs: `getMediaInformation()` agora retorna Session, não MediaInformation diretamente
+- `getLastCommandOutput()` foi removido, usar `getFFmpegEncoders()` para listar encoders
+- Arquivo em `android/` é gitignoreado mas corrigido localmente para teste

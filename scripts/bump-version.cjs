@@ -27,6 +27,7 @@ const ENV_PROD = path.join(ROOT, 'frontend', 'src', 'environments', 'environment
 const BUILD_GRADLE = path.join(ROOT, 'android', 'app', 'build.gradle');
 
 const bumpType = process.argv[2] || 'patch';
+const skipGradle = process.argv.includes('--skip-gradle');
 
 function log(msg) {
   console.log(`[bump-version] ${msg}`);
@@ -114,11 +115,15 @@ function main() {
     [/version:\s*'[^']*'/, `version: '${newVersion}'`],
   ]);
 
-  // 7. Atualizar build.gradle
-  updateFile(BUILD_GRADLE, [
-    [/versionCode\s+\d+/, `versionCode ${versionCode}`],
-    [/versionName\s+"[^"]*"/, `versionName "${newVersion}"`],
-  ]);
+  // 7. Atualizar build.gradle (apenas se existir e não foi skipado)
+  if (!skipGradle) {
+    updateFile(BUILD_GRADLE, [
+      [/versionCode\s+\d+/, `versionCode ${versionCode}`],
+      [/versionName\s+"[^"]*"/, `versionName "${newVersion}"`],
+    ]);
+  } else {
+    log('ℹ️  Pulando build.gradle (--skip-gradle). Atualizado depois por prepare-android.cjs');
+  }
 
   log(`✅ Versão ${newVersion} (code: ${versionCode}) configurada.`);
 }
