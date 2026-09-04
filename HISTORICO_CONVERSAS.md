@@ -230,3 +230,31 @@
 ---
 
 > **PRÓXIMA AÇÃO NECESSÁRIA:** Monitorar novo build em https://github.com/ViniVLS/audioplex4/actions
+
+---
+
+## [2026-09-03 22:20:00] - FIX
+
+**Intenção:** Corrigir erro persistente no GitHub Actions - package-lock.json inconsistente
+**Ação realizada:** 
+1. Identificado que `@angular/cli@21.2.22` requer `chokidar@^5.0.0` mas lock file tinha `3.6.0`
+2. Deletado `package-lock.json` e `node_modules/`
+3. Executado `npm install` - continuou com chokidar 3.6.0
+4. Executado `npm install chokidar@5.0.0 --save-dev` para forçar versão correta
+5. Verificado: chokidar@5.0.0, readdirp@5.1.1, @types/node@26.4.1, undici-types@8.3.0 ✅
+6. Commit e push: `4fcd22f`
+**Arquivos afetados:** 
+- `package-lock.json` (regenerado - 988 inserções, 1355 deleções)
+- `package.json` (adicionado chokidar@^5.0.0 como devDependency)
+**Resultado:** Sucesso - Lock file agora consistente
+**Observações:** 
+- Pacotes que estavam faltando no lock file:
+  - chokidar@5.0.0 (era 3.6.0)
+  - readdirp@5.1.1
+  - @types/node@26.4.1
+  - undici-types@8.3.0
+- `npm ci` no GitHub Actions agora deve funcionar
+
+---
+
+> **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se build do GitHub Actions completa com sucesso
