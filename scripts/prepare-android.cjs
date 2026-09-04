@@ -91,10 +91,10 @@ function injectSigning(gradle) {
   const signingBlock = `
     signingConfigs {
         release {
-            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH") ?: "release.keystore")
-            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            storeFile file(project.findProperty("ANDROID_KEYSTORE_PATH") ?: "release.keystore")
+            storePassword project.findProperty("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias project.findProperty("ANDROID_KEY_ALIAS")
+            keyPassword project.findProperty("ANDROID_KEY_PASSWORD")
         }
     }
 `;

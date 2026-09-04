@@ -82,11 +82,8 @@ jobs:
       - name: Capacitor Sync
         run: npx cap sync android
 
-      - name: Prepare Android (signing + version + plugins)
-        run: node scripts/prepare-android.cjs
-
       # ---------------------------------------------------------------
-      # Signing (release only)
+      # Signing (decode keystore - release only)
       # ---------------------------------------------------------------
       - name: Decode Keystore
         if: github.event_name != 'pull_request'
@@ -94,6 +91,18 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/release.keystore
+
+      - name: Prepare Android (signing + version + plugins)
+        if: github.event_name != 'pull_request'
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: node scripts/prepare-android.cjs
+
+      - name: Prepare Android (no signing - PRs)
+        if: github.event_name == 'pull_request'
+        run: node scripts/prepare-android.cjs
 
       # ---------------------------------------------------------------
       # Build
@@ -111,8 +120,16 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          ./gradlew bundleRelease --no-daemon
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew bundleRelease --no-daemon \
+            -PANDROID_KEYSTORE_PATH="$ANDROID_KEYSTORE_PATH" \
+            -PANDROID_KEYSTORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
+            -PANDROID_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
+            -PANDROID_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+          ./gradlew assembleRelease --no-daemon \
+            -PANDROID_KEYSTORE_PATH="$ANDROID_KEYSTORE_PATH" \
+            -PANDROID_KEYSTORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
+            -PANDROID_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
+            -PANDROID_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
         working-directory: android
 
       # ---------------------------------------------------------------
