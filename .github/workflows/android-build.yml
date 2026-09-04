@@ -71,8 +71,11 @@ jobs:
         working-directory: frontend
 
       # ---------------------------------------------------------------
-      # Capacitor Sync
+      # Capacitor Add + Sync
       # ---------------------------------------------------------------
+      - name: Add Android platform
+        run: npx cap add android
+
       - name: Capacitor Sync
         run: npx cap sync android
 
