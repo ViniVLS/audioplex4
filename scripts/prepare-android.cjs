@@ -123,33 +123,19 @@ function injectPermissions(manifest) {
     .map((perm) => `    <uses-permission android:name="${perm}" />`)
     .join('\n');
 
-  // Insere após a tag de abertura <manifest ...>
-  const manifestOpen = manifest.indexOf('>');
-  const isSelfClosing = manifest[manifestOpen - 1] === '/';
-
-  if (isSelfClosing) {
-    // Caso raro de <manifest ... /> — insere antes de "/>"
-    manifest =
-      manifest.slice(0, manifestOpen) +
-      '>\n' +
-      permissionLines +
-      '\n';
-    // remove o "/" antes do ">" original
-    manifest = manifest.slice(0, manifest.indexOf('/>')) + '>\n' + manifest.slice(manifest.indexOf('/>') + 2);
-    // Simplesmente reescreve: (muito raro, mantém simples)
-    log('⚠️  Manifest auto-fechado — ajustando manualmente.');
-    // fallback: insere logo após <manifest ...>
-    manifest = manifest.replace(
-      /(<manifest[^>]*?)\/>/,
-      `$1>\n${permissionLines}\n</manifest>`,
-    );
-  } else {
-    manifest =
-      manifest.slice(0, manifestOpen + 1) +
-      '\n' +
-      permissionLines +
-      manifest.slice(manifestOpen + 1);
+  // Usa regex para encontrar a tag <manifest ...> com segurança
+  const manifestTagMatch = manifest.match(/<manifest[^>]*>/);
+  if (!manifestTagMatch) {
+    log('⚠️  Tag <manifest> não encontrada.');
+    return manifest;
   }
+
+  const tagEnd = manifestTagMatch.index + manifestTagMatch[0].length;
+  manifest =
+    manifest.slice(0, tagEnd) +
+    '\n' +
+    permissionLines +
+    manifest.slice(tagEnd);
 
   return manifest;
 }
