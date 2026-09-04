@@ -258,3 +258,28 @@
 ---
 
 > **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se build do GitHub Actions completa com sucesso
+
+---
+
+## [2026-09-03 22:25:00] - FIX
+
+**Intenção:** Corrigir erro TS2339 - método `getSessionFromUrl` não existe no Supabase JS v2
+**Ação realizada:** 
+1. Lido erro: `Property 'getSessionFromUrl' does not exist on type 'SupabaseAuthClient'`
+2. Verificado versão: `@supabase/supabase-js@^2.113.0`
+3. Método `getSessionFromUrl` foi removido no Supabase JS v2
+4. Substituído por:
+   - `setSession()` para tokens via hash fragment (access_token + refresh_token)
+   - `exchangeCodeForSession()` para fluxo PKCE (code)
+5. Commit e push: `37d3caa`
+**Arquivos afetados:** 
+- `frontend/src/app/core/services/auth.service.ts` (corrigido - método processOAuthRedirect)
+**Resultado:** Sucesso - Build deve compilar sem erros TypeScript
+**Observações:** 
+- Supabase JS v2 não tem mais `getSessionFromUrl`
+- Solução suporta tanto hash fragment quanto PKCE code flow
+- Deep links nativos (com.audioplex4://auth/callback) funcionam com ambas abordagens
+
+---
+
+> **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se build do GitHub Actions completa com sucesso
