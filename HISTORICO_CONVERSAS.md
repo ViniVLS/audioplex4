@@ -301,4 +301,29 @@
 
 ---
 
+## [2026-09-03 22:35:00] - FEATURE
+
+**Intenção:** Adicionar versionamento automático à aplicação
+**Ação realizada:** 
+1. Criado `scripts/bump-version.cjs` - script de versionamento automático
+2. Atualizado `.github/workflows/android-build.yml`:
+   - Adicionado step "Bump version (auto-increment)" antes do build
+   - Removido `npx cap add android` (android/ será versionado)
+   - Adicionado step "Commit version bump" para salvar versão no git
+3. Script suporta: patch (1.0.0→1.0.1), minor (1.0.0→1.1.0), major (1.0.0→2.0.0)
+4. Atualiza: package.json, environment.ts, environment.production.ts, build.gradle
+5. VersionCode baseado no timestamp (Date.now()/1000)
+6. Commit e push: `918460a`
+**Arquivos afetados:** 
+- `scripts/bump-version.cjs` (criado)
+- `.github/workflows/android-build.yml` (atualizado)
+**Resultado:** Sucesso - Versionamento automático configurado
+**Observações:** 
+- Cada build incrementa automaticamente a versão (patch)
+- Versão aparece no app (environment.version) e no Android (versionName)
+- VersionCode aumenta a cada build (timestamp)
+- Versão é commitada de volta ao repositório após o build
+
+---
+
 > **PRÓXIMA AÇÃO NECESSÁRIA:** Verificar se build do GitHub Actions completa com sucesso
