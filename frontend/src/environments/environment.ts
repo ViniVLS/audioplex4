@@ -6,7 +6,7 @@
 export const environment = {
   production: false,
 
-  version: '1.0.3',
+  version: '1.0.4',
 
   supabase: {
     url:  'https://fgvcjxgwpwjohqumzziv.supabase.co',

@@ -3,7 +3,7 @@
 export const environment = {
   production: true,
 
-  version: '1.0.3',
+  version: '1.0.4',
 
   supabase: {
     url: '__SUPABASE_URL__',
